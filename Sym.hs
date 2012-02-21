@@ -107,9 +107,6 @@ ddt (SNeg x) = SNeg (ddt x)
 ddt (SDot _ _) = error "hmmm... ddt (SDot Vec Vec) you say?"
 
 
--- partial will FAIL if you are taking derivitive
--- w.r.t. a coordinate because i'm assuming
--- partial (f*bx>) p == (partial f p)*bx>
 partial :: Sca -> Sca -> Sca
 partial x y@(SCoord _) = unsafePartial x y
 partial x y@(SSpeed _) = unsafePartial x y
@@ -214,10 +211,11 @@ ddtV f v@(VBasis b@(Basis _ bf) sca)
         w = vSub (angVelWrtN bf) (angVelWrtN f)
 
 
--- partial will FAIL if you are taking derivitive
--- w.r.t. a coordinate because i'm assuming
+-- partialV will FAIL with an error message if you are taking the derivitive 
+-- w.r.t. a coordinate because for now (for simplicity) I assume that:
 -- partial (f*bx>) p == (partial f p)*bx>
 partialV :: Vec -> Sca -> Vec
+partialV _ (SCoord _) = error "partial velocity of vector wrt coordinate not yet supported"
 partialV VZero _ = VZero
 partialV (VCross vx vy) p = vSum (vCross (partialV vx p) vy) (vCross vx (partialV vy p))
 partialV (VSum   vx vy) p = vSum (partialV vx p) (partialV vy p)
