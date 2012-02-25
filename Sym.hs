@@ -16,15 +16,6 @@ data Speed = Speed String
            | DdtCoord Coord deriving Eq
 data Accel = Accel String
            | DdtSpeed Speed deriving Eq
-                                     
-instance Show Coord where
-  show (Coord x) = x
-instance Show Speed where
-  show (Speed x) = x
-  show (DdtCoord x) = show x++"'"
-instance Show Accel where
-  show (Accel x) = x
-  show (DdtSpeed x) = show x++"'"
 
 data Sca = SCoord Coord
          | SSpeed Speed
@@ -40,21 +31,22 @@ data Sca = SCoord Coord
          | SZero
          | SOne deriving Eq
 
-instance Show Sca where
-  show (SCoord x) = show x
-  show (SSpeed x) = show x
-  show (SAccel x) = show x
-  show (SParam x) = x
-  show (SNum x) = show x
-  show (SMul x y) = "( " ++ show x ++ " * " ++ show y ++ " )"
-  show (SDiv x y) = "( " ++ show x ++ " / " ++ show y ++ " )"
-  show (SAdd x y) = "( " ++ show x ++ " + " ++ show y ++ " )"
-  show (SSub x y) = "( " ++ show x ++ " - " ++ show y ++ " )"
-  show (SNeg x) = "( - " ++ show x ++ " )"
-  show (SDot _ _ ) = error "maybe do something about this?"
-  show (SZero) = "0"
-  show (SOne) = "1"
-  
+data Vec = VBasis Basis Sca
+         | VZero
+         | VSum Vec Vec
+         | VSub Vec Vec
+         | VNeg Vec
+         | VCross Vec Vec deriving Eq
+
+data XYZ = X | Y | Z deriving Eq
+data Basis = Basis XYZ Frame deriving Eq
+data Frame = NewtonianFrame String
+           | RFrame Frame Rotation String deriving Eq
+data Rotation = XRot Coord
+              | YRot Coord
+              | ZRot Coord
+              | WRot Vec deriving (Show, Eq)
+
 
 instance Num Sca where
   SZero * _ = SZero
@@ -84,6 +76,53 @@ instance Fractional Sca where
   
   fromRational x = SNum (fromRational x)
   
+------------------------ show instances ----------------------------------
+instance Show Coord where
+  show (Coord x) = x
+instance Show Speed where
+  show (Speed x) = x
+  show (DdtCoord x) = show x++"'"
+instance Show Accel where
+  show (Accel x) = x
+  show (DdtSpeed x) = show x++"'"
+
+instance Show Sca where
+  show (SCoord x) = show x
+  show (SSpeed x) = show x
+  show (SAccel x) = show x
+  show (SParam x) = x
+  show (SNum x) = show x
+  show (SMul x y) = "( " ++ show x ++ " * " ++ show y ++ " )"
+  show (SDiv x y) = "( " ++ show x ++ " / " ++ show y ++ " )"
+  show (SAdd x y) = "( " ++ show x ++ " + " ++ show y ++ " )"
+  show (SSub x y) = "( " ++ show x ++ " - " ++ show y ++ " )"
+  show (SNeg x) = "( - " ++ show x ++ " )"
+  show (SDot _ _ ) = error "maybe do something about this?"
+  show (SZero) = "0"
+  show (SOne) = "1"
+  
+instance Show Vec where
+  show (VBasis b SOne) = show b
+  show (VBasis b x) = show x ++ "*" ++ show b
+  show VZero = "0>"
+  show (VSum vx vy) = "( " ++ show vx ++ " + " ++ show vy ++ " )"
+  show (VSub vx vy) = "( " ++ show vx ++ " - " ++ show vy ++ " )"
+  show (VNeg v) = "( -" ++ show v ++ " )"
+  show (VCross vx vy) = "( " ++ show vx ++ " x " ++ show vy ++ " )"
+
+instance Show XYZ where
+  show X = "x>"
+  show Y = "y>"
+  show Z = "z>"
+
+instance Show Basis where
+  show (Basis xyz frame) = show frame ++ show xyz
+  
+instance Show Frame where
+  show (NewtonianFrame n) = n
+  show (RFrame _ _ n) = n
+
+------------------------------------------------------------------
 
 ddt :: Sca -> Sca
 ddt (SCoord q) = SSpeed (DdtCoord q)
@@ -105,7 +144,6 @@ ddt (SAdd x y) = ddt x + ddt y
 ddt (SSub x y) = ddt x - ddt y
 ddt (SNeg x) = SNeg (ddt x)
 ddt (SDot _ _) = error "hmmm... ddt (SDot Vec Vec) you say?"
-
 
 partial :: Sca -> Sca -> Sca
 partial x y@(SCoord _) = unsafePartial x y
@@ -143,44 +181,6 @@ unsafePartial (SSub x y) p = unsafePartial x p - unsafePartial y p
 unsafePartial (SNeg x) p = SNeg (unsafePartial x p)
 unsafePartial (SDot _ _) _ = error "hmmm... unsafePartial (SDot Vec Vec) you say?"
 
-
-
-
-data Vec = VBasis Basis Sca
-         | VZero
-         | VSum Vec Vec
-         | VSub Vec Vec
-         | VNeg Vec
-         | VCross Vec Vec deriving Eq
-instance Show Vec where
-  show (VBasis b SOne) = show b
-  show (VBasis b x) = show x ++ "*" ++ show b
-  show VZero = "0>"
-  show (VSum vx vy) = "( " ++ show vx ++ " + " ++ show vy ++ " )"
-  show (VSub vx vy) = "( " ++ show vx ++ " - " ++ show vy ++ " )"
-  show (VNeg v) = "( -" ++ show v ++ " )"
-  show (VCross vx vy) = "( " ++ show vx ++ " x " ++ show vy ++ " )"
-
-data XYZ = X | Y | Z deriving Eq
-instance Show XYZ where
-  show X = "x>"
-  show Y = "y>"
-  show Z = "z>"
-data Basis = Basis XYZ Frame deriving Eq
-
-instance Show Basis where
-  show (Basis xyz frame) = show frame ++ show xyz
-  
-data Frame = NewtonianFrame String
-           | RFrame Frame Rotation String deriving Eq
-instance Show Frame where
-  show (NewtonianFrame n) = n
-  show (RFrame _ _ n) = n
-
-data Rotation = XRot Coord
-              | YRot Coord
-              | ZRot Coord
-              | WRot Vec deriving (Show, Eq)
 
 angVel :: Frame -> Rotation -> Vec
 angVel _ (WRot w) = w
