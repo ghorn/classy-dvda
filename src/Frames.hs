@@ -1,31 +1,30 @@
 {-# OPTIONS_GHC -Wall #-}
-{-# Language FlexibleInstances #-}
 
 module Frames ( ddt
               , ddtN
               , partial
               , partialV
-              , fOfT
-              , go
+              , cross
+              , scale
+              , scaleBasis
+              , time
               ) where
 
+import Data.Maybe ( catMaybes )
 import qualified Data.HashMap.Lazy as HM
 
-import Dvda hiding ( scale )
-import Dvda.Expr ( symDependent, isVal )
+import Dvda hiding ( scale, vec, Z )
+import qualified Dvda as Dvda
 
 import Types
-
-time :: Expr Z Double
-time = sym "t"
 
 ddt :: Sca -> Sca
 ddt (SExpr x)
   | isVal 0 ret = SZero
   | isVal 1 ret = SOne
-  | otherwise = SExpr $ ret
+  | otherwise = ret
   where
-    ret = head $ runDeriv x [time]
+    ret = SExpr $ head $ runDeriv x [time]
 ddt _ = SZero
 
 -- | time derivative in a rotating frame using golden rule of vector differentiation
@@ -67,6 +66,13 @@ angVelWrtN (RFrame frame0 (RotCoord q) _)        = (angVelWrtN frame0) + partial
 --expandRotations f@(RFrame f' _ _) = expandRotations f' ++ [f]
 
 partial :: Sca -> Sca -> Sca
+partial _ SZero      = error "partial taken w.r.t. non-symbolic"
+partial _ SOne       = error "partial taken w.r.t. non-symbolic"
+partial _ (SMul _ _) = error "partial taken w.r.t. non-symbolic"
+partial _ (SDiv _ _) = error "partial taken w.r.t. non-symbolic"
+partial _ (SAdd _ _) = error "partial taken w.r.t. non-symbolic"
+partial _ (SSub _ _) = error "partial taken w.r.t. non-symbolic"
+partial _ (SNeg _)   = error "partial taken w.r.t. non-symbolic"
 partial SZero _ = SZero
 partial SOne _ = SZero
 partial (SNeg x) arg = -(partial x arg)
@@ -83,51 +89,58 @@ partial (SSub x y) arg = (partial x arg) - (partial y arg)
 partial (SExpr x) (SExpr arg)
   | isVal 0 ret = SZero
   | isVal 1 ret = SOne
-  | otherwise = SExpr ret
+  | otherwise = ret
   where
-    ret = head (runDeriv x [arg])
-partial _ SZero      = error "unsafe partial intercept!!"
-partial _ SOne       = error "unsafe partial intercept!!"
-partial _ (SMul _ _) = error "unsafe partial intercept!!"
-partial _ (SDiv _ _) = error "unsafe partial intercept!!"
-partial _ (SAdd _ _) = error "unsafe partial intercept!!"
-partial _ (SSub _ _) = error "unsafe partial intercept!!"
-partial _ (SNeg _)   = error "unsafe partial intercept!!"
+    ret = SExpr $ head (runDeriv x [arg])
 
 partialV :: Vec -> Sca -> Vec
 partialV (Vec hm) arg = removeZeros $ Vec $ HM.map (flip partial arg) hm
 
----------------------------------------------------------------------------
 
-rotZ :: Frame -> Sca -> String -> Frame
-rotZ f q name = RFrame f (RotCoord (scaleBasis q (Basis f X))) name
 
------------------------------------------------------------------------------------------
-----coord :: String -> Coord
---type Mass = Sca
---data Particle = ParticlePos Mass Vec
---              | ParticleVel Mass Vec Vec
---
---particle :: Double -> Vec -> Particle
 
-fOfT :: String -> Sca
-fOfT name = SExpr $ symDependent name time
 
-go :: IO ()
-go = do
-  let q = fOfT "q"
-      q' = ddt q
-      
-      n = NewtonianFrame "N"
-      b = rotZ n q "B"
-      
-      len = 1.3
-      r_n02p = scaleBasis len (Basis b X)
-      
-      n_v_p = ddtN r_n02p
-      n_a_p = ddtN n_v_p
-  
-  print r_n02p
-  print n_v_p
-  print (partialV n_v_p q')
-  print n_a_p
+
+
+
+
+
+
+
+------------------------------ utilities -------------------------------------
+
+-- | if (a x b) is zero, return Nothing
+--   .
+--   if (a x b) is non-zero, return (basis0 x basis1, sign*scalar0*scalar1)
+crossBases :: (Basis, Sca) -> (Basis, Sca) -> Maybe (Basis, Sca)
+crossBases (b0@(Basis f0 xyz0), s0) (b1@(Basis f1 xyz1), s1)
+  | f0 == f1 = case (xyz0, xyz1) of
+    (X,Y) -> Just (Basis f0 Z, s0*s1)
+    (Y,Z) -> Just (Basis f0 X, s0*s1)
+    (Z,X) -> Just (Basis f0 Y, s0*s1)
+    (Z,Y) -> Just (Basis f0 X, -(s0*s1))
+    (Y,X) -> Just (Basis f0 Z, -(s0*s1))
+    (X,Z) -> Just (Basis f0 Y, -(s0*s1))
+    (X,X) -> Nothing
+    (Y,Y) -> Nothing
+    (Z,Z) -> Nothing
+  | otherwise = Just (Cross b0 b1, s0*s1)
+crossBases (b0,s0) (b1,s1) = Just (Cross b0 b1, s0*s1)
+
+cross :: Vec -> Vec -> Vec
+cross (Vec hm0) (Vec hm1) =
+  removeZeros $ Vec $ HM.fromListWith (+) $
+  catMaybes [crossBases (b0,x0) (b1,x1) | (b0,x0) <- HM.toList hm0, (b1,x1) <- HM.toList hm1]
+
+scale :: Sca -> Vec -> Vec
+scale s vec@(Vec hm)
+  | isVal 0 s = zeroVec
+  | isVal 1 s = vec
+  | isVal (-1) s = Vec $ HM.map negate hm
+  | otherwise = removeZeros $ Vec $ HM.map (s *) hm
+
+scaleBasis :: Sca -> Basis -> Vec
+scaleBasis s b = removeZeros $ Vec (HM.singleton b s)
+
+time :: Expr Dvda.Z Double
+time = sym "t"

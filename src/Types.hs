@@ -8,21 +8,19 @@ module Types ( Sca(..)
              , Rotation(..)
              , zeroVec
              , removeZeros
-             , cross
-             , scale
-             , scaleBasis
+             , isVal
              ) where
 
 import Data.Hashable
 import Data.HashMap.Lazy ( HashMap )
 import qualified Data.HashMap.Lazy as HM hiding ( fromList ) -- only use fromListWith
 import Data.List ( intersperse )
-import Data.Maybe ( catMaybes )
 --import Debug.Trace
 
-import Dvda hiding ( scale, vec, Z(..) )
+import Dvda hiding ( Z(..) )
 import qualified Dvda as Dvda
-import Dvda.Expr ( Expr(..), Const(..), isVal )
+import qualified Dvda.Expr as Expr
+import Dvda.Expr ( Expr(..), Const(..) )
 import Dvda.BinUn ( BinOp(..), lassoc, rassoc, showBinary )
 
 data Sca = SExpr (Expr Dvda.Z Double)
@@ -160,7 +158,7 @@ instance Show Vec where
       show' (b, sca@(SAdd _ _)) = "(" ++ show sca ++ ")*" ++ show b
       show' (b, sca@(SSub _ _)) = "(" ++ show sca ++ ")*" ++ show b
       show' (b, sca)
-        | isVal' 1 sca = show b
+        | isVal 1 sca = show b
         | otherwise   = show sca ++ "*" ++ show b
 
 instance Show Basis where
@@ -176,44 +174,14 @@ instance Show Frame where
   show (NewtonianFrame n) = n
   show (RFrame _ _ n) = n
 
------------------------------- utilities -------------------------------------
 
--- | if (a x b) is zero, return Nothing
---   .
---   if (a x b) is non-zero, return (basis0 x basis1, sign*scalar0*scalar1)
-crossBases :: (Basis, Sca) -> (Basis, Sca) -> Maybe (Basis, Sca)
-crossBases (b0@(Basis f0 xyz0), s0) (b1@(Basis f1 xyz1), s1)
-  | f0 == f1 = case (xyz0, xyz1) of
-    (X,Y) -> Just (Basis f0 Z, s0*s1)
-    (Y,Z) -> Just (Basis f0 X, s0*s1)
-    (Z,X) -> Just (Basis f0 Y, s0*s1)
-    (Z,Y) -> Just (Basis f0 X, -(s0*s1))
-    (Y,X) -> Just (Basis f0 Z, -(s0*s1))
-    (X,Z) -> Just (Basis f0 Y, -(s0*s1))
-    (X,X) -> Nothing
-    (Y,Y) -> Nothing
-    (Z,Z) -> Nothing
-  | otherwise = Just (Cross b0 b1, s0*s1)
-crossBases (b0,s0) (b1,s1) = Just (Cross b0 b1, s0*s1)
-
-cross :: Vec -> Vec -> Vec
-cross (Vec hm0) (Vec hm1) =
-  removeZeros $ Vec $ HM.fromListWith (+) $
-  catMaybes [crossBases (b0,x0) (b1,x1) | (b0,x0) <- HM.toList hm0, (b1,x1) <- HM.toList hm1]
-
-isVal' :: Double -> Sca -> Bool
-isVal' x (SExpr e) = isVal x e
-isVal' 0 SZero = True
-isVal' 1 SOne = True
-isVal' x (SNeg s) = isVal' (-x) s
-isVal' _ _ = False
-
-scale :: Sca -> Vec -> Vec
-scale s vec@(Vec hm)
-  | isVal' 0 s = zeroVec
-  | isVal' 1 s = vec
-  | isVal' (-1) s = Vec $ HM.map negate hm
-  | otherwise = removeZeros $ Vec $ HM.map (s *) hm
+-------------------- utils ---------------
+isVal :: Double -> Sca -> Bool
+isVal x (SExpr e) = Expr.isVal x e
+isVal 0 SZero = True
+isVal 1 SOne = True
+isVal x (SNeg s) = isVal (-x) s
+isVal _ _ = False
 
 zeroVec :: Vec
 zeroVec = Vec HM.empty
@@ -222,7 +190,5 @@ removeZeros :: Vec -> Vec
 --removeZeros (Vec hm) = trace ("\n-------------\nbefore: "++show hm ++ "\nafter:  "++show ret) $ Vec ret
 removeZeros (Vec hm) = Vec ret
   where
-    ret = HM.filter (not . (isVal' 0)) hm
+    ret = HM.filter (not . (isVal 0)) hm
 
-scaleBasis :: Sca -> Basis -> Vec
-scaleBasis s b = removeZeros $ Vec (HM.singleton b s)
