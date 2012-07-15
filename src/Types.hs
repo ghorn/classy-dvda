@@ -32,8 +32,6 @@ data Sca = SExpr (Expr Dvda.Z Double)
          | SSub Sca Sca
          | SMul Sca Sca
          | SDiv Sca Sca
-         | SZero
-         | SOne
 
 instance Eq Sca where
   (==) (SExpr x) (SExpr y) = x == y
@@ -43,8 +41,6 @@ instance Eq Sca where
   (==) (SSub x0 x1) (SSub y0 y1) = x0 == y0 && x1 == y1
   (==) (SMul x0 x1) (SMul y0 y1) = x0 == y0 && x1 == y1
   (==) (SDiv x0 x1) (SDiv y0 y1) = x0 == y0 && x1 == y1
-  (==) SZero SZero = True
-  (==) SOne SOne = True
   (==) _ _ = False
   
 
@@ -102,8 +98,6 @@ instance Hashable Sca where
   hash (SSub x y) = hash "SSub" `combine` hash x `combine` hash y
   hash (SMul x y) = hash "SMul" `combine` hash x `combine` hash y
   hash (SDiv x y) = hash "SDiv" `combine` hash x `combine` hash y
-  hash SZero = hash "SZero"
-  hash SOne = hash "SOne"
 
 instance Hashable Vec where
   hash (Vec hm) = hash "Vec" `combine` hash (HM.toList hm)
@@ -129,33 +123,40 @@ instance Hashable Rotation where
 
 ------------------------- Num/Fractional instances ---------------------------------
 instance Num Sca where
-  (*) (SExpr x) (SExpr y) = SExpr $ x * y
-  SZero * _ = SZero
-  _ * SZero = SZero
-  SOne * y = y
-  x * SOne = x
-  x * y = SMul x y
+  (*) x y
+    | isVal 0 x || isVal 0 y = 0
+    | isVal 1 x = y
+    | isVal 1 y = x
+    | otherwise = case (x,y) of (SExpr x', SExpr y') -> SExpr (x' * y')
+                                _ -> SMul x y
 
-  (+) (SExpr x) (SExpr y) = SExpr $ x + y
-  SZero + y = y
-  x + SZero = x
-  x + y = SAdd x y
+  (+) x y
+    | x == -y || -x == y = 0
+    | isVal 0 x = y
+    | isVal 0 y = x
+    | otherwise = case (x,y) of (SExpr x', SExpr y') -> SExpr (x' + y')
+                                _ -> SAdd x y
 
-  (-) (SExpr x) (SExpr y) = SExpr $ x - y
-  SZero - y = negate y
-  x - SZero = x
-  x - y = SSub x y
+  (-) x y
+    | x == y = 0
+    | isVal 0 x = -y
+    | isVal 0 y = x
+    | otherwise = case (x,y) of (SExpr x', SExpr y') -> SExpr (x' - y')
+                                _ -> SSub x y
 
   abs = error "abs not defined for Num Sca"
   signum = error "signum not defined for Num Sca"
   fromInteger = SExpr . EConst . (CSingleton Dvda.Z) . fromInteger
+  negate (SNeg x) = x
+  negate x = SNeg x
 
 instance Fractional Sca where
-  (SExpr x) / (SExpr y) = SExpr $ x / y
-  _ / SZero = error "divide by SZero"
-  SZero / _ = SZero
-  x / SOne = x
-  x / y = SDiv x y
+  (/) x y
+    | isVal 1 y = x
+    | isVal 0 y = error "Fractional Sca (/): divide by 0"
+    | isVal 0 x = 0
+    | otherwise = case (x,y) of (SExpr x', SExpr y') -> SExpr (x' / y')
+                                _ -> SDiv x y
 
   fromRational = SExpr . EConst . (CSingleton Dvda.Z) . fromRational
 
@@ -192,14 +193,14 @@ pareny _ _ = id
 
 instance Show Sca where
   show (SExpr x) = show x
-  show (SDot (b0,b1) x) = "( " ++ show x ++ ") * ( " ++ show b0 ++ " . " ++ show b1 ++ " )"
+  show (SDot (b0,b1) x)
+     | isVal 1 x = "( " ++ show b0 ++ " . " ++ show b1 ++ " )"
+     | otherwise = "( " ++ show x ++ " ) * ( " ++ show b0 ++ " . " ++ show b1 ++ " )"
   show (SMul x y) = parenx x Mul (show x) ++ " " ++ showBinary Mul ++ " " ++ pareny y Mul (show y)
   show (SDiv x y) = parenx x Div (show x) ++ " " ++ showBinary Div ++ " " ++ pareny y Div (show y)
   show (SAdd x y) = parenx x Add (show x) ++ " " ++ showBinary Add ++ " " ++ pareny y Add (show y)
   show (SSub x y) = parenx x Sub (show x) ++ " " ++ showBinary Sub ++ " " ++ pareny y Sub (show y)
   show (SNeg x) = "(-(" ++ show x ++ "))"
-  show (SZero) = "0"
-  show (SOne) = "1"
 
 instance Show Vec where
   show (Vec hm) = concat $ intersperse " + " (map show' (HM.toList hm))
@@ -227,9 +228,6 @@ instance Show Frame where
 -------------------- utils ---------------
 isVal :: Double -> Sca -> Bool
 isVal x (SExpr e) = Expr.isVal x e
-isVal 0 SZero = True
-isVal 1 SOne = True
-isVal x (SNeg s) = isVal (-x) s
 isVal _ _ = False
 
 zeroVec :: Vec

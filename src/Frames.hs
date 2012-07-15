@@ -8,7 +8,9 @@ module Frames ( ddt
               , dot
               , scale
               , scaleBasis
-              , time
+              , fOfT
+              , isCoord
+              , isSpeed
               ) where
 
 import Data.Maybe ( catMaybes )
@@ -17,17 +19,15 @@ import qualified Data.HashSet as HS
 
 import Dvda hiding ( scale, vec, Z )
 import qualified Dvda as Dvda
+import Dvda.Expr ( Expr(..), Sym(..) )
 
 import Types
 
+fOfT :: String -> Sca
+fOfT name = SExpr $ symDependent name time
+
 ddt :: Sca -> Sca
-ddt (SExpr x)
-  | isVal 0 ret = SZero
-  | isVal 1 ret = SOne
-  | otherwise = ret
-  where
-    ret = SExpr $ head $ runDeriv x [time]
-ddt _ = SZero
+ddt = flip partial (SExpr time)
 
 -- | time derivative in a rotating frame using golden rule of vector differentiation
 ddtN :: Vec -> Vec
@@ -50,19 +50,24 @@ angVelWrtN (NewtonianFrame _) = zeroVec
 angVelWrtN (RFrame frame0 (RotSpeed w) _) = (angVelWrtN frame0) + w
 angVelWrtN (RFrame frame0 (RotCoord q) _) = (angVelWrtN frame0) + partialV q (SExpr time)
 
+isCoord, isSpeed, isTime :: Sca -> Bool
+isCoord (SExpr (ESym _ (SymDependent _ 0 (Sym t)))) = ESym Dvda.Z (Sym t) == time
+isCoord _ = False
+
+isSpeed (SExpr (ESym _ (SymDependent _ 1 (Sym t)))) = ESym Dvda.Z (Sym t) == time
+isSpeed _ = False
+
+isTime (SExpr t) = t == time
+isTime _ = False
+
 -- | partial derivative, if the argument is time this will be the full derivative
 partial :: Sca -> Sca -> Sca
-partial _ SZero      = error "partial taken w.r.t. non-symbolic"
-partial _ SOne       = error "partial taken w.r.t. non-symbolic"
 partial _ (SMul _ _) = error "partial taken w.r.t. non-symbolic"
 partial _ (SDiv _ _) = error "partial taken w.r.t. non-symbolic"
 partial _ (SAdd _ _) = error "partial taken w.r.t. non-symbolic"
 partial _ (SSub _ _) = error "partial taken w.r.t. non-symbolic"
 partial _ (SNeg _)   = error "partial taken w.r.t. non-symbolic"
 partial _ (SDot _ _) = error "partial taken w.r.t. non-symbolic"
-partial SZero _ = SZero
-partial SOne _ = SZero
-partial (SDot b x) arg = SDot b (partial x arg)
 partial (SNeg x) arg = -(partial x arg)
 partial (SMul x y) arg = x*y' + x'*y
   where
@@ -74,12 +79,16 @@ partial (SDiv x y) arg = x'/y - x/(y*y)*y'
     y' = partial y arg
 partial (SAdd x y) arg = (partial x arg) + (partial y arg)
 partial (SSub x y) arg = (partial x arg) - (partial y arg)
-partial (SExpr x) (SExpr arg)
-  | isVal 0 ret = SZero
-  | isVal 1 ret = SOne
-  | otherwise = ret
+partial (SExpr x)  (SExpr arg) = SExpr $ head (runDeriv x [arg])
+--partial (SDot _ _) _ = error "partial SDot not implemented"
+partial (SDot (b0,b1) s) arg = (SDot (b0,b1) 1)*(partial s arg) + dDot*s
   where
-    ret = SExpr $ head (runDeriv x [arg])
+    v0 = scaleBasis 1 b0
+    v1 = scaleBasis 1 b1
+    dDot
+      | isTime arg = ddtN v0 `dot` v1 + v0 `dot` ddtN v1
+      | isSpeed arg = 0
+      | otherwise = error $ "can't take partial of SDot w.r.t anything except time or generalied speed"
 
 -- | partial derivative, if the argument is time this will be a full derivative
 --   but will not apply the golden rule of vector differentiation

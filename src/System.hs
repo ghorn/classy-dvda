@@ -5,18 +5,14 @@ module System ( rotX
               , rotY
               , rotZ
               , param
-              , fOfT
               , go
               ) where
 
-import Dvda ( sym, symDependent )
+import Dvda ( sym )
 
 import Frames
 import Types
                 
-
-fOfT :: String -> Sca
-fOfT name = SExpr $ symDependent name time
 
 param :: String -> Sca
 param name = SExpr $ sym name
@@ -54,3 +50,5 @@ go = do
   putStrLn $ "a_pn:              " ++ show a_pn
   print $ dot r_n02p v_pn
   print $ dot a_pn nx
+  putStrLn ""
+  print $ ddt (dot a_pn nx)
