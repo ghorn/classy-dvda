@@ -39,9 +39,12 @@ go = do
       n = NewtonianFrame "N"
       b = rotZ n q "B"
       
-      len = 1.3
+      len = param "r" -- 1.3
 
       r_n02p = scaleBasis len (Basis b X)
+
+      nx = scaleBasis 1 (Basis n X)
+      
       v_pn = ddtN r_n02p
       a_pn = ddtN v_pn
   
@@ -49,4 +52,5 @@ go = do
   putStrLn $ "v_pn:              " ++ show v_pn
   putStrLn $ "partialV v_pn q':  " ++ show (partialV v_pn q')
   putStrLn $ "a_pn:              " ++ show a_pn
-
+  print $ dot r_n02p v_pn
+  print $ dot a_pn nx

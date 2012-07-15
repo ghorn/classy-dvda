@@ -26,18 +26,32 @@ import Dvda.Expr ( Expr(..), Const(..) )
 import Dvda.BinUn ( BinOp(..), lassoc, rassoc, showBinary )
 
 data Sca = SExpr (Expr Dvda.Z Double)
+         | SDot (Basis,Basis) Sca
          | SNeg Sca
          | SAdd Sca Sca
          | SSub Sca Sca
          | SMul Sca Sca
          | SDiv Sca Sca
          | SZero
-         | SOne deriving Eq
+         | SOne
+
+instance Eq Sca where
+  (==) (SExpr x) (SExpr y) = x == y
+  (==) (SDot (bx0, bx1) x) (SDot (by0, by1) y) = x == y && or [bx0 == by0 && bx1 == by1, bx0 == by1 && bx1 == by0]
+  (==) (SNeg x) (SNeg y) = x == y
+  (==) (SAdd x0 x1) (SAdd y0 y1) = x0 == y0 && x1 == y1
+  (==) (SSub x0 x1) (SSub y0 y1) = x0 == y0 && x1 == y1
+  (==) (SMul x0 x1) (SMul y0 y1) = x0 == y0 && x1 == y1
+  (==) (SDiv x0 x1) (SDiv y0 y1) = x0 == y0 && x1 == y1
+  (==) SZero SZero = True
+  (==) SOne SOne = True
+  (==) _ _ = False
+  
 
 data Basis = Basis Frame XYZ
            | Cross Basis Basis deriving Eq
 
-data Vec = Vec (HashMap Basis Sca) EquivBases deriving Eq
+data Vec = Vec (HashMap Basis Sca) deriving Eq
 
 data XYZ = X | Y | Z deriving Eq
 
@@ -68,19 +82,21 @@ instance HasEquivBases Frame where
                          else HS.empty
     _ -> HS.empty
     where
-      rotBases = HM.keys $ (\(Vec hm _) -> hm) (rotVec rot)
+      rotBases = HM.keys $ (\(Vec hm) -> hm) (rotVec rot)
 
 instance HasEquivBases Basis where
   equivBases (Basis frame _) = equivBases frame
   equivBases (Cross b0 b1) = HS.union (equivBases b0) (equivBases b1)
 
-instance HasEquivBases Vec where
-  equivBases (Vec _ ebs) = ebs
-
 
 -------------------------- hashable instances ------------------------------------
 instance Hashable Sca where
   hash (SExpr x)  = hash "SExpr" `combine` hash x
+  -- sort the hashes because (x `dot` y) == (y `dot` x), as defined in Eq instance
+  hash (SDot (b0,b1) x) = hash "SExpr" `combine` hash x `combine` min hb0 hb1 `combine` max hb0 hb1
+    where
+      hb0 = hash b0
+      hb1 = hash b1
   hash (SNeg x)   = hash "SNeg" `combine` hash x
   hash (SAdd x y) = hash "SAdd" `combine` hash x `combine` hash y
   hash (SSub x y) = hash "SSub" `combine` hash x `combine` hash y
@@ -90,7 +106,7 @@ instance Hashable Sca where
   hash SOne = hash "SOne"
 
 instance Hashable Vec where
-  hash (Vec hm _) = hash "Vec" `combine` hash (HM.toList hm)
+  hash (Vec hm) = hash "Vec" `combine` hash (HM.toList hm)
 
 instance Hashable Basis where
   hash (Basis f xyz) = hash "Basis" `combine` hash f `combine` hash xyz
@@ -144,9 +160,9 @@ instance Fractional Sca where
   fromRational = SExpr . EConst . (CSingleton Dvda.Z) . fromRational
 
 instance Num Vec where
-  (+) (Vec x hsx) (Vec y hsy) = removeZeros $ Vec (HM.unionWith (+) x y) (HS.union hsx hsy)
-  (-) (Vec x hsx) (Vec y hsy) = removeZeros $ Vec (HM.unionWith (-) x y) (HS.union hsx hsy)
-  negate (Vec x hs) = removeZeros $ Vec (HM.map negate x) hs
+  (+) (Vec x) (Vec y) = removeZeros $ Vec (HM.unionWith (+) x y)
+  (-) (Vec x) (Vec y) = removeZeros $ Vec (HM.unionWith (-) x y)
+  negate (Vec x) = removeZeros $ Vec (HM.map negate x)
 
   (*) = error "(*) not instanced for Vec"
   abs = error "abs not instanced for Vec"
@@ -176,6 +192,7 @@ pareny _ _ = id
 
 instance Show Sca where
   show (SExpr x) = show x
+  show (SDot (b0,b1) x) = "( " ++ show x ++ ") * ( " ++ show b0 ++ " . " ++ show b1 ++ " )"
   show (SMul x y) = parenx x Mul (show x) ++ " " ++ showBinary Mul ++ " " ++ pareny y Mul (show y)
   show (SDiv x y) = parenx x Div (show x) ++ " " ++ showBinary Div ++ " " ++ pareny y Div (show y)
   show (SAdd x y) = parenx x Add (show x) ++ " " ++ showBinary Add ++ " " ++ pareny y Add (show y)
@@ -185,7 +202,7 @@ instance Show Sca where
   show (SOne) = "1"
 
 instance Show Vec where
-  show (Vec hm _) = concat $ intersperse " + " (map show' (HM.toList hm))
+  show (Vec hm) = concat $ intersperse " + " (map show' (HM.toList hm))
     where
       show' (b, sca@(SAdd _ _)) = "( " ++ show sca ++ " ) * " ++ show b
       show' (b, sca@(SSub _ _)) = "( " ++ show sca ++ " ) * " ++ show b
@@ -216,11 +233,10 @@ isVal x (SNeg s) = isVal (-x) s
 isVal _ _ = False
 
 zeroVec :: Vec
-zeroVec = Vec HM.empty HS.empty
+zeroVec = Vec HM.empty
 
 removeZeros :: Vec -> Vec
 --removeZeros (Vec hm) = trace ("\n-------------\nbefore: "++show hm ++ "\nafter:  "++show ret) $ Vec ret
-removeZeros (Vec hm hs) = Vec ret hs
+removeZeros (Vec hm) = Vec ret
   where
     ret = HM.filter (not . (isVal 0)) hm
-

@@ -5,6 +5,7 @@ module Frames ( ddt
               , partial
               , partialV
               , cross
+              , dot
               , scale
               , scaleBasis
               , time
@@ -30,7 +31,7 @@ ddt _ = SZero
 
 -- | time derivative in a rotating frame using golden rule of vector differentiation
 ddtN :: Vec -> Vec
-ddtN (Vec hm0 _) = removeZeros $ sum $ map ddtN' (HM.toList hm0)
+ddtN (Vec hm0) = removeZeros $ sum $ map ddtN' (HM.toList hm0)
   where
     ddtN' :: (Basis, Sca) -> Vec
     ddtN' (basis, sca) = scaleBasis (ddt sca) basis + ddtNBasis basis
@@ -58,8 +59,10 @@ partial _ (SDiv _ _) = error "partial taken w.r.t. non-symbolic"
 partial _ (SAdd _ _) = error "partial taken w.r.t. non-symbolic"
 partial _ (SSub _ _) = error "partial taken w.r.t. non-symbolic"
 partial _ (SNeg _)   = error "partial taken w.r.t. non-symbolic"
+partial _ (SDot _ _) = error "partial taken w.r.t. non-symbolic"
 partial SZero _ = SZero
 partial SOne _ = SZero
+partial (SDot b x) arg = SDot b (partial x arg)
 partial (SNeg x) arg = -(partial x arg)
 partial (SMul x y) arg = x*y' + x'*y
   where
@@ -81,7 +84,7 @@ partial (SExpr x) (SExpr arg)
 -- | partial derivative, if the argument is time this will be a full derivative
 --   but will not apply the golden rule of vector differentiation
 partialV :: Vec -> Sca -> Vec
-partialV (Vec hm hs) arg = removeZeros $ Vec (HM.map (flip partial arg) hm) hs
+partialV (Vec hm) arg = removeZeros $ Vec (HM.map (flip partial arg) hm)
 
 
 ------------------------------ utilities -------------------------------------
@@ -128,24 +131,66 @@ crossBases (b0,s0) (b1,s1) = Just (Cross b0 b1, s0*s1)
 
 -- | vector cross product
 cross :: Vec -> Vec -> Vec
-cross (Vec hm0 hs0) (Vec hm1 hs1) = removeZeros $ Vec hm hs
+cross (Vec hm0) (Vec hm1) = removeZeros $ Vec hm
   where
     hm = HM.fromListWith (+) $
-         catMaybes [crossBases (b0,x0) (b1,x1) | (b0,x0) <- HM.toList hm0, (b1,x1) <- HM.toList hm1]
-    hs = HS.union hs0 hs1
+         catMaybes [crossBases (b0,s0) (b1,s1) | (b0,s0) <- HM.toList hm0, (b1,s1) <- HM.toList hm1]
+
+---- | dot product of two vectors
+--   if (a . b) is zero, return Nothing
+--   .
+--   if (a . b) is non-zero, return (basis0 . basis1, sign*scalar0*scalar1)
+dotBases :: (Basis, Sca) -> (Basis, Sca) -> Sca
+dotBases (b0@(Basis f0 xyz0), s0) (b1@(Basis f1 xyz1), s1)
+  | f0 == f1 = case (xyz0, xyz1) of
+    (X,X) -> s0*s1
+    (Y,Y) -> s0*s1
+    (Z,Z) -> s0*s1
+    _     -> 0
+  | otherwise = case (b0Equivs, b1Equivs) of
+    (b0':_,     _) -> dotBases (b0',s0) (b1 ,s1)
+    (    _, b1':_) -> dotBases (b0 ,s0) (b1',s1)
+    ([],[]) -> SDot (b0,b1) (s0*s1)
+  where
+    -- every basis b0 is equivalent to
+    b0Equivs :: [Basis]
+    b0Equivs = allReplacements b0 f1
+    -- every basis b1 is equivalent to
+    b1Equivs :: [Basis]
+    b1Equivs = allReplacements b1 f0
+
+    allReplacements :: Basis -> Frame -> [Basis]
+    allReplacements b f = map snd $ filter g ebs
+      where
+        g (b',Basis f' _) = b == b' && f == f'
+        g _ = False
+
+    -- all the (basis1, basis2) equivilencies
+    ebs :: [(Basis,Basis)]
+    ebs = ebs' ++ map (\(x,y) -> (y,x)) ebs'
+      where
+        ebs' = HS.toList $ HS.union (equivBases b0) (equivBases b1)
+dotBases (b0,s0) (b1,s1) = SDot (b0,b1) (s0*s1)
+
+-- | vector dot product
+dot :: Vec -> Vec -> Sca
+dot (Vec hm0) (Vec hm1) =
+  sum [dotBases (b0,s0) (b1,s1) | (b0,s0) <- HM.toList hm0, (b1,s1) <- HM.toList hm1]
+
 
 -- | scale a vector by a scalar, returning a vector
 scale :: Sca -> Vec -> Vec
-scale s vec@(Vec hm hs)
+scale s vec@(Vec hm)
   | isVal 0 s = zeroVec
   | isVal 1 s = vec
-  | isVal (-1) s = Vec (HM.map negate hm) hs
-  | otherwise = removeZeros $ Vec (HM.map (s *) hm) hs
+  | isVal (-1) s = Vec (HM.map negate hm)
+  | otherwise = removeZeros $ Vec (HM.map (s *) hm)
 
 -- | combine a scalar and a basis into a vector
 scaleBasis :: Sca -> Basis -> Vec
-scaleBasis s b = removeZeros $ Vec (HM.singleton b s) (equivBases b)
+scaleBasis s b = removeZeros $ Vec (HM.singleton b s)
 
 -- | the independent variable time used in taking time derivatives
 time :: Expr Dvda.Z Double
 time = sym "t"
+
