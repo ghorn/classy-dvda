@@ -35,17 +35,16 @@ ddtN (Vec hm0) = removeZeros $ sum $ map ddtN' (HM.toList hm0)
     ddtN' (basis, sca) = scaleBasis (ddt sca) basis + ddtNBasis basis
       where
         ddtNBasis :: Basis -> Vec
-        ddtNBasis b@(Basis bf _) = (angVelWrtN bf) `cross` (scaleBasis 1 b)
+        ddtNBasis (Basis bf _) = (angVelWrtN bf) `cross` (scaleBasis sca basis)
         ddtNBasis (Cross bf0 bf1) = ddtN v0 `cross` v1 + v0 `cross` ddtN v1
           where
             v0 = scaleBasis 1 bf0
             v1 = scaleBasis 1 bf1
 
-
 --------------------------------------------------------------------
 angVelWrtN :: Frame -> Vec
 angVelWrtN (NewtonianFrame _) = zeroVec
-angVelWrtN (RFrame frame0 (RotCoordSpeed _ w) _) = (angVelWrtN frame0) + w
+--angVelWrtN (RFrame frame0 (RotCoordSpeed _ w) _) = (angVelWrtN frame0) + w
 angVelWrtN (RFrame frame0 (RotSpeed w) _)        = (angVelWrtN frame0) + w
 angVelWrtN (RFrame frame0 (RotCoord q) _)        = (angVelWrtN frame0) + partialV q (SExpr time)
 
@@ -65,6 +64,7 @@ angVelWrtN (RFrame frame0 (RotCoord q) _)        = (angVelWrtN frame0) + partial
 --expandRotations f@(NewtonianFrame _) = [f]
 --expandRotations f@(RFrame f' _ _) = expandRotations f' ++ [f]
 
+-- | partial derivative, if the argument is time this will be the full derivative
 partial :: Sca -> Sca -> Sca
 partial _ SZero      = error "partial taken w.r.t. non-symbolic"
 partial _ SOne       = error "partial taken w.r.t. non-symbolic"
@@ -93,18 +93,10 @@ partial (SExpr x) (SExpr arg)
   where
     ret = SExpr $ head (runDeriv x [arg])
 
+-- | partial derivative, if the argument is time this will be a full derivative
+--   but will not apply the golden rule of vector differentiation
 partialV :: Vec -> Sca -> Vec
 partialV (Vec hm) arg = removeZeros $ Vec $ HM.map (flip partial arg) hm
-
-
-
-
-
-
-
-
-
-
 
 
 ------------------------------ utilities -------------------------------------
@@ -127,11 +119,13 @@ crossBases (b0@(Basis f0 xyz0), s0) (b1@(Basis f1 xyz1), s1)
   | otherwise = Just (Cross b0 b1, s0*s1)
 crossBases (b0,s0) (b1,s1) = Just (Cross b0 b1, s0*s1)
 
+-- | vector cross product
 cross :: Vec -> Vec -> Vec
 cross (Vec hm0) (Vec hm1) =
   removeZeros $ Vec $ HM.fromListWith (+) $
   catMaybes [crossBases (b0,x0) (b1,x1) | (b0,x0) <- HM.toList hm0, (b1,x1) <- HM.toList hm1]
 
+-- | scale a vector by a scalar, returning a vector
 scale :: Sca -> Vec -> Vec
 scale s vec@(Vec hm)
   | isVal 0 s = zeroVec
@@ -139,8 +133,10 @@ scale s vec@(Vec hm)
   | isVal (-1) s = Vec $ HM.map negate hm
   | otherwise = removeZeros $ Vec $ HM.map (s *) hm
 
+-- | combine a scalar and a basis into a vector
 scaleBasis :: Sca -> Basis -> Vec
 scaleBasis s b = removeZeros $ Vec (HM.singleton b s)
 
+-- | the independent variable time used in taking time derivatives
 time :: Expr Dvda.Z Double
 time = sym "t"

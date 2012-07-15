@@ -15,7 +15,6 @@ import Data.Hashable
 import Data.HashMap.Lazy ( HashMap )
 import qualified Data.HashMap.Lazy as HM hiding ( fromList ) -- only use fromListWith
 import Data.List ( intersperse )
---import Debug.Trace
 
 import Dvda hiding ( Z(..) )
 import qualified Dvda as Dvda
@@ -43,8 +42,8 @@ data Frame = NewtonianFrame String
            | RFrame Frame Rotation String deriving Eq
 
 data Rotation = RotSpeed Vec
-              | RotCoord Vec
-              | RotCoordSpeed Vec Vec deriving (Show, Eq)
+              | RotCoord Vec deriving (Show, Eq)
+--              | RotCoordSpeed Vec Vec
 
 -------------------------- hashable instances ------------------------------------
 instance Hashable Sca where
@@ -76,7 +75,7 @@ instance Hashable Frame where
 instance Hashable Rotation where
   hash (RotCoord q)        = hash "RotCoord" `combine` hash q
   hash (RotSpeed v)        = hash "RotSpeed" `combine` hash v
-  hash (RotCoordSpeed q v) = hash "RotCoordSpeed" `combine` hash q `combine` hash v
+--  hash (RotCoordSpeed q v) = hash "RotCoordSpeed" `combine` hash q `combine` hash v
   
 
 ------------------------- Num/Fractional instances ---------------------------------
@@ -155,11 +154,11 @@ instance Show Sca where
 instance Show Vec where
   show (Vec hm) = concat $ intersperse " + " (map show' (HM.toList hm))
     where
-      show' (b, sca@(SAdd _ _)) = "(" ++ show sca ++ ")*" ++ show b
-      show' (b, sca@(SSub _ _)) = "(" ++ show sca ++ ")*" ++ show b
+      show' (b, sca@(SAdd _ _)) = "( " ++ show sca ++ " ) * " ++ show b
+      show' (b, sca@(SSub _ _)) = "( " ++ show sca ++ " ) * " ++ show b
       show' (b, sca)
         | isVal 1 sca = show b
-        | otherwise   = show sca ++ "*" ++ show b
+        | otherwise   = show sca ++ " * " ++ show b
 
 instance Show Basis where
   show (Basis f xyz) = show f ++ show xyz

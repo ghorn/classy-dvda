@@ -1,12 +1,15 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# Language FlexibleInstances #-}
 
-module System ( rotZ
+module System ( rotX
+              , rotY
+              , rotZ
+              , param
               , fOfT
               , go
               ) where
 
-import Dvda ( symDependent )
+import Dvda ( sym, symDependent )
 
 import Frames
 import Types
@@ -15,8 +18,17 @@ import Types
 fOfT :: String -> Sca
 fOfT name = SExpr $ symDependent name time
 
+param :: String -> Sca
+param name = SExpr $ sym name
+
+rotX :: Frame -> Sca -> String -> Frame
+rotX f q name = RFrame f (RotCoord (scaleBasis q (Basis f X))) name
+
+rotY :: Frame -> Sca -> String -> Frame
+rotY f q name = RFrame f (RotCoord (scaleBasis q (Basis f Y))) name
+
 rotZ :: Frame -> Sca -> String -> Frame
-rotZ f q name = RFrame f (RotCoord (scaleBasis q (Basis f X))) name
+rotZ f q name = RFrame f (RotCoord (scaleBasis q (Basis f Z))) name
 
 -----------------------------------------------------------------------------------------
 ----coord :: String -> Coord
@@ -35,13 +47,13 @@ go = do
       b = rotZ n q "B"
       
       len = 1.3
+
       r_n02p = scaleBasis len (Basis b X)
-      
-      n_v_p = ddtN r_n02p
-      n_a_p = ddtN n_v_p
+      v_pn = ddtN r_n02p
+      a_pn = ddtN v_pn
   
-  print r_n02p
-  print n_v_p
-  print (partialV n_v_p q')
-  print n_a_p
+  putStrLn $ "r_n02p:            " ++ show r_n02p
+  putStrLn $ "v_pn:              " ++ show v_pn
+  putStrLn $ "partialV v_pn q':  " ++ show (partialV v_pn q')
+  putStrLn $ "a_pn:              " ++ show a_pn
 
