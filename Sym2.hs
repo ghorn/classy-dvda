@@ -2,12 +2,11 @@
 {-# Language FlexibleInstances #-}
 
 module Sym2 ( ddt
-            , ddtV
+            , ddtN
             , partial
             , partialV
             , fOfT
             , go
-            , ddtN'
             ) where
 
 import qualified Data.HashMap.Lazy as HM
@@ -29,39 +28,27 @@ ddt (SExpr x)
 ddt _ = SZero
 
 -- | time derivative in a rotating frame using golden rule of vector differentiation
-ddtN' :: Frame -> (Basis, Sca) -> Vec
-ddtN' f (basis@(Basis bf _), sca) = ddtBf + wCrossV
+ddtN :: Vec -> Vec
+ddtN (Vec hm0) = removeZeros $ sum $ map ddtN' (HM.toList hm0)
   where
-    ddtBf = scaleBasis (ddt sca) basis
-    wCrossV = w `cross` (scaleBasis sca basis)
+    ddtN' :: (Basis, Sca) -> Vec
+    ddtN' (basis, sca) = scaleBasis (ddt sca) basis + ddtNBasis basis
       where
-        w = (angVelWrtN bf) - (angVelWrtN f)
-ddtN' f (basis@(Cross bf0 bf1), sca) = (scaleBasis (ddt sca) basis) + wCrossV
-  where
-    wCrossV = w `cross` (scaleBasis sca basis)
-      where
-        w = (angVelWrtN bf) - (angVelWrtN f)
+        ddtNBasis :: Basis -> Vec
+        ddtNBasis b@(Basis bf _) = (angVelWrtN bf) `cross` (scaleBasis 1 b)
+        ddtNBasis (Cross bf0 bf1) = ddtN v0 `cross` v1 + v0 `cross` ddtN v1
+          where
+            v0 = scaleBasis 1 bf0
+            v1 = scaleBasis 1 bf1
 
-ddtV :: Frame -> Vec -> Vec
-ddtV = undefined
---ddtV _ VZero = VZero
---ddtV f (VCross vx vy) = ((ddtV f vx) `cross` vy) + (vx `cross`  (ddtV f vy))
---ddtV f (VAdd   vx vy) = (ddtV f vx) + (ddtV f vy)
---ddtV f (VSub   vx vy) = (ddtV f vx) - (ddtV f vy)
---ddtV f (VNeg   vx)    = - (ddtV f vx)
---ddtV f v@(VBasis (Basis bf xyz) sca) 
---  | f == bf = ddtN
---  | otherwise = ddtN + wCrossV
---  where
---    ddtN
---      | ddtS == SZero = VZero
---      | otherwise     = VBasis (Basis bf xyz) ddtS
---      where ddtS = ddt sca
---    wCrossV = w `cross` v
---      where
---        w = (angVelWrtN bf) - (angVelWrtN f)
 
 --------------------------------------------------------------------
+angVelWrtN :: Frame -> Vec
+angVelWrtN (NewtonianFrame _) = zeroVec
+angVelWrtN (RFrame frame0 (RotCoordSpeed _ w) _) = (angVelWrtN frame0) + w
+angVelWrtN (RFrame frame0 (RotSpeed w) _)        = (angVelWrtN frame0) + w
+angVelWrtN (RFrame frame0 (RotCoord q) _)        = (angVelWrtN frame0) + partialV q (SExpr time)
+
 --minRot :: Frame -> Frame -> Rotation
 --minRot fx fy = blah
 --  where
@@ -74,23 +61,9 @@ ddtV = undefined
 
 --minimalRotation (NewtonianFrame n) x
 
-expandRotations :: Frame -> [Frame]
-expandRotations f@(NewtonianFrame _) = [f]
-expandRotations f@(RFrame f' _ _) = expandRotations f' ++ [f]
-
-angVelWrtN :: Frame -> Vec
-angVelWrtN (NewtonianFrame _) = zeroVec
-angVelWrtN (RFrame frame0 rot _) = (angVelWrtN frame0) + (angVel frame0 rot)
-  where
-    angVel :: Frame -> Rotation -> Vec
-    angVel = undefined
---    angVel f (RotCoord VBasis bf xyz q) = VBasis bf xyz (ddt q)
---    angVel _ (RotCoord bf VZero) = VZero
---    angVel f (RotCoord (VNeg x)) = negate $ angVel f (RotCoord x)
---    angVel f (RotCoord (VAdd _ _)) = error "implement angVel RotCord VAdd"
---    angVel f (RotCoord (VSub _ _)) = error "implement angVel RotCord VSub"
---    angVel f (RotCoord (VCross _ _)) = error "implement angVel RotCord VCross"
-----    angVel _ (WRot w) = w
+--expandRotations :: Frame -> [Frame]
+--expandRotations f@(NewtonianFrame _) = [f]
+--expandRotations f@(RFrame f' _ _) = expandRotations f' ++ [f]
 
 partial :: Sca -> Sca -> Sca
 partial SZero _ = SZero
@@ -150,8 +123,8 @@ go = do
       len = 1.3
       r_n02p = scaleBasis len (Basis b X)
       
-      n_v_p = ddtV n r_n02p
-      n_a_p = ddtV n n_v_p
+      n_v_p = ddtN r_n02p
+      n_a_p = ddtN n_v_p
   
   print r_n02p
   print n_v_p

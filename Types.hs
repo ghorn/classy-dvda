@@ -19,9 +19,11 @@ import Data.HashMap.Lazy ( HashMap )
 import qualified Data.HashMap.Lazy as HM hiding ( fromList ) -- only use fromListWith
 import Data.List ( intersperse )
 import Data.Maybe ( catMaybes )
+--import Debug.Trace
 
 import Dvda hiding ( scale, vec )
 import Dvda.Expr ( Expr(..), Const(..), isVal )
+import Dvda.BinUn ( BinOp(..), lassoc, rassoc, showBinary )
 
 data Sca = SExpr (Expr Z Double)
          | SNeg Sca
@@ -42,8 +44,9 @@ data XYZ = X | Y | Z deriving Eq
 data Frame = NewtonianFrame String
            | RFrame Frame Rotation String deriving Eq
 
-data Rotation = RotCoord Vec
-              | RotSpeed Vec deriving (Show, Eq)
+data Rotation = RotSpeed Vec
+              | RotCoord Vec
+              | RotCoordSpeed Vec Vec deriving (Show, Eq)
 
 -------------------------- hashable instances ------------------------------------
 instance Hashable Sca where
@@ -73,8 +76,9 @@ instance Hashable Frame where
   hash (RFrame frame rot name) = hash "RFrame" `combine` hash frame `combine` hash rot `combine` hash name
 
 instance Hashable Rotation where
-  hash (RotCoord v) = hash "RotCoord" `combine` hash v
-  hash (RotSpeed v) = hash "RotSpeed" `combine` hash v
+  hash (RotCoord q)        = hash "RotCoord" `combine` hash q
+  hash (RotSpeed v)        = hash "RotSpeed" `combine` hash v
+  hash (RotCoordSpeed q v) = hash "RotCoordSpeed" `combine` hash q `combine` hash v
   
 
 ------------------------- Num/Fractional instances ---------------------------------
@@ -117,23 +121,47 @@ instance Num Vec where
   (*) = error "(*) not instanced for Vec"
   abs = error "abs not instanced for Vec"
   signum = error "signum not instanced for Vec"
-  fromInteger = error "fromInteger not instanced for Vec"
+  fromInteger 0 = zeroVec
+  fromInteger _ = error "Num Vec's fromInteger only instanced for 0"
 
 -------------------------- show instances ----------------------------------
+paren :: String -> String
+paren x = "("++ x ++")"
+
+parenx :: Sca -> BinOp -> String -> String
+parenx (SExpr (EBinary xop _ _)) op = if lassoc xop op then id else paren
+parenx (SMul _ _) op =                if lassoc Mul op then id else paren
+parenx (SDiv _ _) op =                if lassoc Div op then id else paren
+parenx (SAdd _ _) op =                if lassoc Add op then id else paren
+parenx (SSub _ _) op =                if lassoc Sub op then id else paren
+parenx _ _ = id
+
+pareny :: Sca -> BinOp -> String -> String
+pareny (SExpr (EBinary yop _ _)) op = if rassoc op yop then id else paren
+pareny (SMul _ _) op =                if rassoc op Mul then id else paren
+pareny (SDiv _ _) op =                if rassoc op Div then id else paren
+pareny (SAdd _ _) op =                if rassoc op Add then id else paren
+pareny (SSub _ _) op =                if rassoc op Sub then id else paren
+pareny _ _ = id
+
 instance Show Sca where
   show (SExpr x) = show x
-  show (SMul x y) = "( " ++ show x ++ " * " ++ show y ++ " )"
-  show (SDiv x y) = "( " ++ show x ++ " / " ++ show y ++ " )"
-  show (SAdd x y) = "( " ++ show x ++ " + " ++ show y ++ " )"
-  show (SSub x y) = "( " ++ show x ++ " - " ++ show y ++ " )"
-  show (SNeg x) = "( - " ++ show x ++ " )"
+  show (SMul x y) = parenx x Mul (show x) ++ " " ++ showBinary Mul ++ " " ++ pareny y Mul (show y)
+  show (SDiv x y) = parenx x Div (show x) ++ " " ++ showBinary Div ++ " " ++ pareny y Div (show y)
+  show (SAdd x y) = parenx x Add (show x) ++ " " ++ showBinary Add ++ " " ++ pareny y Add (show y)
+  show (SSub x y) = parenx x Sub (show x) ++ " " ++ showBinary Sub ++ " " ++ pareny y Sub (show y)
+  show (SNeg x) = "(-(" ++ show x ++ "))"
   show (SZero) = "0"
   show (SOne) = "1"
 
 instance Show Vec where
   show (Vec hm) = concat $ intersperse " + " (map show' (HM.toList hm))
     where
-      show' (b, sca) = "(" ++ show sca ++ ")*" ++ show b
+      show' (b, sca@(SAdd _ _)) = "(" ++ show sca ++ ")*" ++ show b
+      show' (b, sca@(SSub _ _)) = "(" ++ show sca ++ ")*" ++ show b
+      show' (b, sca)
+        | isVal' 1 sca = show b
+        | otherwise   = show sca ++ "*" ++ show b
 
 instance Show Basis where
   show (Basis f xyz) = show f ++ show xyz
@@ -170,28 +198,14 @@ crossBases (b0,s0) (b1,s1) = Just (Cross b0 b1, s0*s1)
 
 cross :: Vec -> Vec -> Vec
 cross (Vec hm0) (Vec hm1) =
-  Vec $ HM.fromListWith (+) $
+  removeZeros $ Vec $ HM.fromListWith (+) $
   catMaybes [crossBases (b0,x0) (b1,x1) | (b0,x0) <- HM.toList hm0, (b1,x1) <- HM.toList hm1]
-
---cross :: Vec -> Vec -> Vec
---cross VZero _ = VZero
---cross _ VZero = VZero
---cross x@(VBasis (Basis f0 xyz0) sca0) y@(VBasis (Basis f1 xyz1) sca1)
---  | f0 == f1 = case (xyz0, xyz1) of
---    (X,Y) -> VBasis (Basis f0 Z)   (sca0*sca1)
---    (Y,Z) -> VBasis (Basis f0 X)   (sca0*sca1)
---    (Z,X) -> VBasis (Basis f0 Y)   (sca0*sca1)
---    (Z,Y) -> VBasis (Basis f0 X) (-(sca0*sca1))
---    (Y,X) -> VBasis (Basis f0 Z) (-(sca0*sca1))
---    (X,Z) -> VBasis (Basis f0 Y) (-(sca0*sca1))
---    (X,X) -> VZero
---    (Y,Y) -> VZero
---    (Z,Z) -> VZero
---  | otherwise = VCross x y
---cross x y = VCross x y
 
 isVal' :: Double -> Sca -> Bool
 isVal' x (SExpr e) = isVal x e
+isVal' 0 SZero = True
+isVal' 1 SOne = True
+isVal' x (SNeg s) = isVal' (-x) s
 isVal' _ _ = False
 
 scale :: Sca -> Vec -> Vec
@@ -205,7 +219,10 @@ zeroVec :: Vec
 zeroVec = Vec HM.empty
 
 removeZeros :: Vec -> Vec
-removeZeros (Vec hm) = Vec $ HM.filter (0 /=) hm
+--removeZeros (Vec hm) = trace ("\n-------------\nbefore: "++show hm ++ "\nafter:  "++show ret) $ Vec ret
+removeZeros (Vec hm) = Vec ret
+  where
+    ret = HM.filter (not . (isVal' 0)) hm
 
 scaleBasis :: Sca -> Basis -> Vec
 scaleBasis s b = removeZeros $ Vec (HM.singleton b s)
