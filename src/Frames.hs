@@ -80,7 +80,6 @@ partial (SDiv x y) arg = x'/y - x/(y*y)*y'
 partial (SAdd x y) arg = (partial x arg) + (partial y arg)
 partial (SSub x y) arg = (partial x arg) - (partial y arg)
 partial (SExpr x)  (SExpr arg) = SExpr $ head (runDeriv x [arg])
---partial (SDot _ _) _ = error "partial SDot not implemented"
 partial (SDot (b0,b1) s) arg = (SDot (b0,b1) 1)*(partial s arg) + dDot*s
   where
     v0 = scaleBasis 1 b0
@@ -202,4 +201,3 @@ scaleBasis s b = removeZeros $ Vec (HM.singleton b s)
 -- | the independent variable time used in taking time derivatives
 time :: Expr Dvda.Z Double
 time = sym "t"
-

@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -Wall #-}
-{-# Language FlexibleInstances #-}
 
 module System ( rotX
               , rotY
