@@ -1,19 +1,20 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# Language FlexibleInstances #-}
 
-module Sym2 ( ddt
-            , ddtN
-            , partial
-            , partialV
-            , fOfT
-            , go
-            ) where
+module Frames ( ddt
+              , ddtN
+              , partial
+              , partialV
+              , fOfT
+              , go
+              ) where
 
 import qualified Data.HashMap.Lazy as HM
 
-import Types
 import Dvda hiding ( scale )
 import Dvda.Expr ( symDependent, isVal )
+
+import Types
 
 time :: Expr Z Double
 time = sym "t"

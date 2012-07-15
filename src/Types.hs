@@ -13,7 +13,6 @@ module Types ( Sca(..)
              , scaleBasis
              ) where
 
-import qualified Data.Array.Repa as Repa
 import Data.Hashable
 import Data.HashMap.Lazy ( HashMap )
 import qualified Data.HashMap.Lazy as HM hiding ( fromList ) -- only use fromListWith
@@ -21,11 +20,12 @@ import Data.List ( intersperse )
 import Data.Maybe ( catMaybes )
 --import Debug.Trace
 
-import Dvda hiding ( scale, vec )
+import Dvda hiding ( scale, vec, Z(..) )
+import qualified Dvda as Dvda
 import Dvda.Expr ( Expr(..), Const(..), isVal )
 import Dvda.BinUn ( BinOp(..), lassoc, rassoc, showBinary )
 
-data Sca = SExpr (Expr Z Double)
+data Sca = SExpr (Expr Dvda.Z Double)
          | SNeg Sca
          | SAdd Sca Sca
          | SSub Sca Sca
@@ -102,7 +102,7 @@ instance Num Sca where
 
   abs = error "abs not defined for Num Sca"
   signum = error "signum not defined for Num Sca"
-  fromInteger = SExpr . EConst . (CSingleton Repa.Z) . fromInteger
+  fromInteger = SExpr . EConst . (CSingleton Dvda.Z) . fromInteger
 
 instance Fractional Sca where
   (SExpr x) / (SExpr y) = SExpr $ x / y
@@ -111,7 +111,7 @@ instance Fractional Sca where
   x / SOne = x
   x / y = SDiv x y
 
-  fromRational = SExpr . EConst . (CSingleton Repa.Z) . fromRational
+  fromRational = SExpr . EConst . (CSingleton Dvda.Z) . fromRational
 
 instance Num Vec where
   (+) (Vec x) (Vec y) = removeZeros $ Vec $ HM.unionWith (+) x y

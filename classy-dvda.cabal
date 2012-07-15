@@ -1,0 +1,25 @@
+name:                classy-dvda
+version:             0.1.0.0
+synopsis:            classical dynamics using Kanes equations or Lagrangian mechanics
+-- description:         
+homepage:            http://github.com/ghorn/classy-dvda
+license:             BSD3
+license-file:        LICENSE
+author:              Greg Horn
+maintainer:          gregmainland@gmail.com
+-- copyright:           
+-- category:            
+build-type:          Simple
+cabal-version:       >=1.8
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Frames,
+                       Types
+  -- other-modules:       
+  build-depends:       base >= 4   && < 5,
+                       dvda >= 0.2 && < 0.3,
+                       -- unordered-containers and hashable will use the same version that dvda uses
+                       -- so we don't need to specify
+                       unordered-containers,
+                       hashable
