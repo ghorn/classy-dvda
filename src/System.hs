@@ -21,22 +21,15 @@ fOfT name = SExpr $ symDependent name time
 param :: String -> Sca
 param name = SExpr $ sym name
 
-rotX :: Frame -> Sca -> String -> Frame
-rotX f q name = RFrame f (RotCoord (scaleBasis q (Basis f X))) name
+rotXYZ :: XYZ -> Frame -> Sca -> String -> Frame
+rotXYZ xyz f0 q name = RFrame f0 (RotCoord (scaleBasis q rotationBasis)) name
+  where
+    rotationBasis = Basis f0 xyz
 
-rotY :: Frame -> Sca -> String -> Frame
-rotY f q name = RFrame f (RotCoord (scaleBasis q (Basis f Y))) name
-
-rotZ :: Frame -> Sca -> String -> Frame
-rotZ f q name = RFrame f (RotCoord (scaleBasis q (Basis f Z))) name
-
------------------------------------------------------------------------------------------
-----coord :: String -> Coord
---type Mass = Sca
---data Particle = ParticlePos Mass Vec
---              | ParticleVel Mass Vec Vec
---
---particle :: Double -> Vec -> Particle
+rotX,rotY,rotZ :: Frame -> Sca -> String -> Frame
+rotX = rotXYZ X
+rotY = rotXYZ Y
+rotZ = rotXYZ Z
 
 go :: IO ()
 go = do

@@ -9,11 +9,14 @@ module Types ( Sca(..)
              , zeroVec
              , removeZeros
              , isVal
+             , equivBases
              ) where
 
 import Data.Hashable
 import Data.HashMap.Lazy ( HashMap )
 import qualified Data.HashMap.Lazy as HM hiding ( fromList ) -- only use fromListWith
+import Data.HashSet( HashSet )
+import qualified Data.HashSet as HS
 import Data.List ( intersperse )
 
 import Dvda hiding ( Z(..) )
@@ -34,7 +37,7 @@ data Sca = SExpr (Expr Dvda.Z Double)
 data Basis = Basis Frame XYZ
            | Cross Basis Basis deriving Eq
 
-data Vec = Vec (HashMap Basis Sca) deriving Eq
+data Vec = Vec (HashMap Basis Sca) EquivBases deriving Eq
 
 data XYZ = X | Y | Z deriving Eq
 
@@ -44,6 +47,36 @@ data Frame = NewtonianFrame String
 data Rotation = RotSpeed Vec
               | RotCoord Vec deriving (Show, Eq)
 --              | RotCoordSpeed Vec Vec
+
+-- | Lots of things carry around a list of all equivalent bases
+--   For example: if you start with frame N and rotate about Nz to get A, then Nz == Az
+type EquivBases = (HashSet (Basis, Basis))
+
+------------------------- get equivilant bases ---------------------------
+rotVec :: Rotation -> Vec
+rotVec (RotSpeed v) = v
+rotVec (RotCoord v) = v
+
+class HasEquivBases a where
+  equivBases :: a -> EquivBases
+
+instance HasEquivBases Frame where
+  equivBases (NewtonianFrame _) = HS.empty
+  equivBases f@(RFrame f0 rot _) = case rotBases of
+    [Basis frame xyz] -> if frame == f0
+                         then HS.insert (Basis f0 xyz, Basis f xyz) (equivBases f0)
+                         else HS.empty
+    _ -> HS.empty
+    where
+      rotBases = HM.keys $ (\(Vec hm _) -> hm) (rotVec rot)
+
+instance HasEquivBases Basis where
+  equivBases (Basis frame _) = equivBases frame
+  equivBases (Cross b0 b1) = HS.union (equivBases b0) (equivBases b1)
+
+instance HasEquivBases Vec where
+  equivBases (Vec _ ebs) = ebs
+
 
 -------------------------- hashable instances ------------------------------------
 instance Hashable Sca where
@@ -57,7 +90,7 @@ instance Hashable Sca where
   hash SOne = hash "SOne"
 
 instance Hashable Vec where
-  hash (Vec hm) = hash "Vec" `combine` hash (HM.toList hm)
+  hash (Vec hm _) = hash "Vec" `combine` hash (HM.toList hm)
 
 instance Hashable Basis where
   hash (Basis f xyz) = hash "Basis" `combine` hash f `combine` hash xyz
@@ -111,9 +144,9 @@ instance Fractional Sca where
   fromRational = SExpr . EConst . (CSingleton Dvda.Z) . fromRational
 
 instance Num Vec where
-  (+) (Vec x) (Vec y) = removeZeros $ Vec $ HM.unionWith (+) x y
-  (-) (Vec x) (Vec y) = removeZeros $ Vec $ HM.unionWith (-) x y
-  negate (Vec x) = removeZeros $ Vec $ HM.map negate x
+  (+) (Vec x hsx) (Vec y hsy) = removeZeros $ Vec (HM.unionWith (+) x y) (HS.union hsx hsy)
+  (-) (Vec x hsx) (Vec y hsy) = removeZeros $ Vec (HM.unionWith (-) x y) (HS.union hsx hsy)
+  negate (Vec x hs) = removeZeros $ Vec (HM.map negate x) hs
 
   (*) = error "(*) not instanced for Vec"
   abs = error "abs not instanced for Vec"
@@ -152,7 +185,7 @@ instance Show Sca where
   show (SOne) = "1"
 
 instance Show Vec where
-  show (Vec hm) = concat $ intersperse " + " (map show' (HM.toList hm))
+  show (Vec hm _) = concat $ intersperse " + " (map show' (HM.toList hm))
     where
       show' (b, sca@(SAdd _ _)) = "( " ++ show sca ++ " ) * " ++ show b
       show' (b, sca@(SSub _ _)) = "( " ++ show sca ++ " ) * " ++ show b
@@ -183,11 +216,11 @@ isVal x (SNeg s) = isVal (-x) s
 isVal _ _ = False
 
 zeroVec :: Vec
-zeroVec = Vec HM.empty
+zeroVec = Vec HM.empty HS.empty
 
 removeZeros :: Vec -> Vec
 --removeZeros (Vec hm) = trace ("\n-------------\nbefore: "++show hm ++ "\nafter:  "++show ret) $ Vec ret
-removeZeros (Vec hm) = Vec ret
+removeZeros (Vec hm hs) = Vec ret hs
   where
     ret = HM.filter (not . (isVal 0)) hm
 

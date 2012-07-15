@@ -12,6 +12,7 @@ module Frames ( ddt
 
 import Data.Maybe ( catMaybes )
 import qualified Data.HashMap.Lazy as HM
+import qualified Data.HashSet as HS
 
 import Dvda hiding ( scale, vec, Z )
 import qualified Dvda as Dvda
@@ -29,7 +30,7 @@ ddt _ = SZero
 
 -- | time derivative in a rotating frame using golden rule of vector differentiation
 ddtN :: Vec -> Vec
-ddtN (Vec hm0) = removeZeros $ sum $ map ddtN' (HM.toList hm0)
+ddtN (Vec hm0 _) = removeZeros $ sum $ map ddtN' (HM.toList hm0)
   where
     ddtN' :: (Basis, Sca) -> Vec
     ddtN' (basis, sca) = scaleBasis (ddt sca) basis + ddtNBasis basis
@@ -44,25 +45,9 @@ ddtN (Vec hm0) = removeZeros $ sum $ map ddtN' (HM.toList hm0)
 --------------------------------------------------------------------
 angVelWrtN :: Frame -> Vec
 angVelWrtN (NewtonianFrame _) = zeroVec
---angVelWrtN (RFrame frame0 (RotCoordSpeed _ w) _) = (angVelWrtN frame0) + w
-angVelWrtN (RFrame frame0 (RotSpeed w) _)        = (angVelWrtN frame0) + w
-angVelWrtN (RFrame frame0 (RotCoord q) _)        = (angVelWrtN frame0) + partialV q (SExpr time)
-
---minRot :: Frame -> Frame -> Rotation
---minRot fx fy = blah
---  where
---    match (x:xs) (y:ys)
---      | x == y = match xz ys
---      | otherwise = 
---    
---    expandRots f@(NewtonianFrame name) = [f]
---    expandRots f@(RFrame f' rot name) = expandRots f' ++ [f]
-
---minimalRotation (NewtonianFrame n) x
-
---expandRotations :: Frame -> [Frame]
---expandRotations f@(NewtonianFrame _) = [f]
---expandRotations f@(RFrame f' _ _) = expandRotations f' ++ [f]
+--angVelWrtN (RFrame frame0 (RotCoordSpeed _ w) _ _) = (angVelWrtN frame0) + w
+angVelWrtN (RFrame frame0 (RotSpeed w) _) = (angVelWrtN frame0) + w
+angVelWrtN (RFrame frame0 (RotCoord q) _) = (angVelWrtN frame0) + partialV q (SExpr time)
 
 -- | partial derivative, if the argument is time this will be the full derivative
 partial :: Sca -> Sca -> Sca
@@ -96,7 +81,7 @@ partial (SExpr x) (SExpr arg)
 -- | partial derivative, if the argument is time this will be a full derivative
 --   but will not apply the golden rule of vector differentiation
 partialV :: Vec -> Sca -> Vec
-partialV (Vec hm) arg = removeZeros $ Vec $ HM.map (flip partial arg) hm
+partialV (Vec hm hs) arg = removeZeros $ Vec (HM.map (flip partial arg) hm) hs
 
 
 ------------------------------ utilities -------------------------------------
@@ -116,26 +101,50 @@ crossBases (b0@(Basis f0 xyz0), s0) (b1@(Basis f1 xyz1), s1)
     (X,X) -> Nothing
     (Y,Y) -> Nothing
     (Z,Z) -> Nothing
-  | otherwise = Just (Cross b0 b1, s0*s1)
+  | otherwise = case (b0Equivs, b1Equivs) of
+    (b0':_,     _) -> crossBases (b0',s0) (b1 ,s1)
+    (    _, b1':_) -> crossBases (b0 ,s0) (b1',s1)
+    ([],[]) -> Just (Cross b0 b1, s0*s1)
+  where
+    -- every basis b0 is equivalent to
+    b0Equivs :: [Basis]
+    b0Equivs = allReplacements b0 f1
+    -- every basis b1 is equivalent to
+    b1Equivs :: [Basis]
+    b1Equivs = allReplacements b1 f0
+
+    allReplacements :: Basis -> Frame -> [Basis]
+    allReplacements b f = map snd $ filter g ebs
+      where
+        g (b',Basis f' _) = b == b' && f == f'
+        g _ = False
+
+    -- all the (basis1, basis2) equivilencies
+    ebs :: [(Basis,Basis)]
+    ebs = ebs' ++ map (\(x,y) -> (y,x)) ebs'
+      where
+        ebs' = HS.toList $ HS.union (equivBases b0) (equivBases b1)
 crossBases (b0,s0) (b1,s1) = Just (Cross b0 b1, s0*s1)
 
 -- | vector cross product
 cross :: Vec -> Vec -> Vec
-cross (Vec hm0) (Vec hm1) =
-  removeZeros $ Vec $ HM.fromListWith (+) $
-  catMaybes [crossBases (b0,x0) (b1,x1) | (b0,x0) <- HM.toList hm0, (b1,x1) <- HM.toList hm1]
+cross (Vec hm0 hs0) (Vec hm1 hs1) = removeZeros $ Vec hm hs
+  where
+    hm = HM.fromListWith (+) $
+         catMaybes [crossBases (b0,x0) (b1,x1) | (b0,x0) <- HM.toList hm0, (b1,x1) <- HM.toList hm1]
+    hs = HS.union hs0 hs1
 
 -- | scale a vector by a scalar, returning a vector
 scale :: Sca -> Vec -> Vec
-scale s vec@(Vec hm)
+scale s vec@(Vec hm hs)
   | isVal 0 s = zeroVec
   | isVal 1 s = vec
-  | isVal (-1) s = Vec $ HM.map negate hm
-  | otherwise = removeZeros $ Vec $ HM.map (s *) hm
+  | isVal (-1) s = Vec (HM.map negate hm) hs
+  | otherwise = removeZeros $ Vec (HM.map (s *) hm) hs
 
 -- | combine a scalar and a basis into a vector
 scaleBasis :: Sca -> Basis -> Vec
-scaleBasis s b = removeZeros $ Vec (HM.singleton b s)
+scaleBasis s b = removeZeros $ Vec (HM.singleton b s) (equivBases b)
 
 -- | the independent variable time used in taking time derivatives
 time :: Expr Dvda.Z Double
