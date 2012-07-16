@@ -8,7 +8,9 @@ module Frames ( ddt
               , dot
               , scale
               , scaleBasis
-              , fOfT
+              , coord
+              , speed
+              , param
               , isCoord
               , isSpeed
               ) where
@@ -23,11 +25,17 @@ import Dvda.Expr ( Expr(..), Sym(..) )
 
 import Types
 
-fOfT :: String -> Sca
-fOfT name = SExpr $ symDependent name time
+coord :: String -> Sca
+coord name = SExpr (symDependent name time) (Just 0)
+
+speed :: String -> Sca
+speed name = SExpr (symDependent name time) (Just 1)
+
+param :: String -> Sca
+param name = SExpr (sym name) Nothing
 
 ddt :: Sca -> Sca
-ddt = flip partial (SExpr time)
+ddt = flip partial (SExpr time Nothing)
 
 -- | time derivative in a rotating frame using golden rule of vector differentiation
 ddtN :: Vec -> Vec
@@ -48,16 +56,16 @@ angVelWrtN :: Frame -> Vec
 angVelWrtN (NewtonianFrame _) = zeroVec
 --angVelWrtN (RFrame frame0 (RotCoordSpeed _ w) _ _) = (angVelWrtN frame0) + w
 angVelWrtN (RFrame frame0 (RotSpeed w) _) = (angVelWrtN frame0) + w
-angVelWrtN (RFrame frame0 (RotCoord q) _) = (angVelWrtN frame0) + partialV q (SExpr time)
+angVelWrtN (RFrame frame0 (RotCoord q) _) = (angVelWrtN frame0) + partialV q (SExpr time Nothing)
 
 isCoord, isSpeed, isTime :: Sca -> Bool
-isCoord (SExpr (ESym _ (SymDependent _ 0 (Sym t)))) = ESym Dvda.Z (Sym t) == time
+isCoord (SExpr (ESym _ (SymDependent _ 0 (Sym t))) (Just 0)) = ESym Dvda.Z (Sym t) == time
 isCoord _ = False
 
-isSpeed (SExpr (ESym _ (SymDependent _ 1 (Sym t)))) = ESym Dvda.Z (Sym t) == time
+isSpeed (SExpr (ESym _ (SymDependent _ _ (Sym t))) (Just 1)) = ESym Dvda.Z (Sym t) == time
 isSpeed _ = False
 
-isTime (SExpr t) = t == time
+isTime (SExpr t Nothing) = t == time
 isTime _ = False
 
 -- | partial derivative, if the argument is time this will be the full derivative
@@ -79,7 +87,10 @@ partial (SDiv x y) arg = x'/y - x/(y*y)*y'
     y' = partial y arg
 partial (SAdd x y) arg = (partial x arg) + (partial y arg)
 partial (SSub x y) arg = (partial x arg) - (partial y arg)
-partial (SExpr x)  (SExpr arg) = SExpr $ head (runDeriv x [arg])
+partial (SExpr x (Just k)) a@(SExpr arg _)
+  | isTime a  = SExpr (head (runDeriv x [arg])) (Just (k+1))
+  | otherwise = SExpr (head (runDeriv x [arg])) (Just k)
+partial (SExpr x Nothing) (SExpr arg _) = SExpr (head (runDeriv x [arg])) Nothing
 partial (SDot (b0,b1) s) arg = (SDot (b0,b1) 1)*(partial s arg) + dDot*s
   where
     v0 = scaleBasis 1 b0

@@ -25,7 +25,7 @@ import qualified Dvda.Expr as Expr
 import Dvda.Expr ( Expr(..), Const(..) )
 import Dvda.BinUn ( BinOp(..), lassoc, rassoc, showBinary )
 
-data Sca = SExpr (Expr Dvda.Z Double)
+data Sca = SExpr (Expr Dvda.Z Double) (Maybe Int)
          | SDot (Basis,Basis) Sca
          | SNeg Sca
          | SAdd Sca Sca
@@ -34,7 +34,7 @@ data Sca = SExpr (Expr Dvda.Z Double)
          | SDiv Sca Sca
 
 instance Eq Sca where
-  (==) (SExpr x) (SExpr y) = x == y
+  (==) (SExpr x mx) (SExpr y my) = x == y && mx == my
   (==) (SDot (bx0, bx1) x) (SDot (by0, by1) y) = x == y && or [bx0 == by0 && bx1 == by1, bx0 == by1 && bx1 == by0]
   (==) (SNeg x) (SNeg y) = x == y
   (==) (SAdd x0 x1) (SAdd y0 y1) = x0 == y0 && x1 == y1
@@ -87,7 +87,8 @@ instance HasEquivBases Basis where
 
 -------------------------- hashable instances ------------------------------------
 instance Hashable Sca where
-  hash (SExpr x)  = hash "SExpr" `combine` hash x
+  hash (SExpr x (Just mx))  = hash "SExpr" `combine` hash x `combine` mx
+  hash (SExpr x _)  = hash "SExpr" `combine` hash x
   -- sort the hashes because (x `dot` y) == (y `dot` x), as defined in Eq instance
   hash (SDot (b0,b1) x) = hash "SExpr" `combine` hash x `combine` min hb0 hb1 `combine` max hb0 hb1
     where
@@ -127,26 +128,26 @@ instance Num Sca where
     | isVal 0 x || isVal 0 y = 0
     | isVal 1 x = y
     | isVal 1 y = x
-    | otherwise = case (x,y) of (SExpr x', SExpr y') -> SExpr (x' * y')
+    | otherwise = case (x,y) of (SExpr x' _, SExpr y' _) -> SExpr (x' * y') Nothing
                                 _ -> SMul x y
 
   (+) x y
     | x == -y || -x == y = 0
     | isVal 0 x = y
     | isVal 0 y = x
-    | otherwise = case (x,y) of (SExpr x', SExpr y') -> SExpr (x' + y')
+    | otherwise = case (x,y) of (SExpr x' _, SExpr y' _) -> SExpr (x' + y') Nothing
                                 _ -> SAdd x y
 
   (-) x y
     | x == y = 0
     | isVal 0 x = -y
     | isVal 0 y = x
-    | otherwise = case (x,y) of (SExpr x', SExpr y') -> SExpr (x' - y')
+    | otherwise = case (x,y) of (SExpr x' _, SExpr y' _) -> SExpr (x' - y') Nothing
                                 _ -> SSub x y
 
   abs = error "abs not defined for Num Sca"
   signum = error "signum not defined for Num Sca"
-  fromInteger = SExpr . EConst . (CSingleton Dvda.Z) . fromInteger
+  fromInteger = (\x -> x Nothing) . SExpr . EConst . (CSingleton Dvda.Z) . fromInteger
   negate (SNeg x) = x
   negate x = SNeg x
 
@@ -155,10 +156,10 @@ instance Fractional Sca where
     | isVal 1 y = x
     | isVal 0 y = error "Fractional Sca (/): divide by 0"
     | isVal 0 x = 0
-    | otherwise = case (x,y) of (SExpr x', SExpr y') -> SExpr (x' / y')
+    | otherwise = case (x,y) of (SExpr x' _, SExpr y' _) -> SExpr (x' / y') Nothing
                                 _ -> SDiv x y
 
-  fromRational = SExpr . EConst . (CSingleton Dvda.Z) . fromRational
+  fromRational = (\x -> x Nothing) . SExpr . EConst . (CSingleton Dvda.Z) . fromRational
 
 instance Num Vec where
   (+) (Vec x) (Vec y) = removeZeros $ Vec (HM.unionWith (+) x y)
@@ -176,23 +177,23 @@ paren :: String -> String
 paren x = "("++ x ++")"
 
 parenx :: Sca -> BinOp -> String -> String
-parenx (SExpr (EBinary xop _ _)) op = if lassoc xop op then id else paren
-parenx (SMul _ _) op =                if lassoc Mul op then id else paren
-parenx (SDiv _ _) op =                if lassoc Div op then id else paren
-parenx (SAdd _ _) op =                if lassoc Add op then id else paren
-parenx (SSub _ _) op =                if lassoc Sub op then id else paren
+parenx (SExpr (EBinary xop _ _) _) op = if lassoc xop op then id else paren
+parenx (SMul _ _) op =                  if lassoc Mul op then id else paren
+parenx (SDiv _ _) op =                  if lassoc Div op then id else paren
+parenx (SAdd _ _) op =                  if lassoc Add op then id else paren
+parenx (SSub _ _) op =                  if lassoc Sub op then id else paren
 parenx _ _ = id
 
 pareny :: Sca -> BinOp -> String -> String
-pareny (SExpr (EBinary yop _ _)) op = if rassoc op yop then id else paren
-pareny (SMul _ _) op =                if rassoc op Mul then id else paren
-pareny (SDiv _ _) op =                if rassoc op Div then id else paren
-pareny (SAdd _ _) op =                if rassoc op Add then id else paren
-pareny (SSub _ _) op =                if rassoc op Sub then id else paren
+pareny (SExpr (EBinary yop _ _) _) op = if rassoc op yop then id else paren
+pareny (SMul _ _) op =                  if rassoc op Mul then id else paren
+pareny (SDiv _ _) op =                  if rassoc op Div then id else paren
+pareny (SAdd _ _) op =                  if rassoc op Add then id else paren
+pareny (SSub _ _) op =                  if rassoc op Sub then id else paren
 pareny _ _ = id
 
 instance Show Sca where
-  show (SExpr x) = show x
+  show (SExpr x _) = show x
   show (SDot (b0,b1) x)
      | isVal 1 x = "( " ++ show b0 ++ " . " ++ show b1 ++ " )"
      | otherwise = "( " ++ show x ++ " ) * ( " ++ show b0 ++ " . " ++ show b1 ++ " )"
@@ -227,7 +228,7 @@ instance Show Frame where
 
 -------------------- utils ---------------
 isVal :: Double -> Sca -> Bool
-isVal x (SExpr e) = Expr.isVal x e
+isVal x (SExpr e _) = Expr.isVal x e
 isVal _ _ = False
 
 zeroVec :: Vec
