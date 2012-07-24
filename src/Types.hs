@@ -6,6 +6,10 @@ module Types ( Sca(..)
              , Basis(..)
              , Frame(..)
              , Rotation(..)
+             , Dyad(..)
+             , Dyadic(..)
+             , Equation(..)
+             , Equations(..)
              , zeroVec
              , removeZeros
              , isVal
@@ -17,7 +21,7 @@ import Data.HashMap.Lazy ( HashMap )
 import qualified Data.HashMap.Lazy as HM hiding ( fromList ) -- only use fromListWith
 import Data.HashSet( HashSet )
 import qualified Data.HashSet as HS
-import Data.List ( intersperse )
+import Data.List ( intercalate )
 
 import Dvda hiding ( Z(..) )
 import qualified Dvda as Dvda
@@ -54,31 +58,48 @@ data XYZ = X | Y | Z deriving Eq
 data Frame = NewtonianFrame String
            | RFrame Frame Rotation String deriving Eq
 
-data Rotation = RotSpeed Vec
+data Rotation = RotSpeed (Sca,Sca,Sca)
               | RotCoord Vec deriving (Show, Eq)
 --              | RotCoordSpeed Vec Vec
+
+data Dyad = Dyad Sca Basis Basis
+instance Show Dyad where
+  show (Dyad x b1 b2) = "(" ++ show x ++ ")*" ++ show b1 ++ show b2
+
+data Dyadic = Dyadic ((Dyad, Dyad, Dyad), (Dyad, Dyad, Dyad), (Dyad, Dyad, Dyad))
+instance Show Dyadic where
+  show (Dyadic ((xx,xy,xz), (yx,yy,yz), (zx,zy,zz))) = intercalate " + " $ map show xs
+    where
+      xs = filter (\(Dyad s _ _) -> s /= 0) [xx,xy,xz,yx,yy,yz,zx,zy,zz]
+
+data Equation a = Equation a Ordering a
+instance Show a => Show (Equation a) where
+  show (Equation lhs EQ rhs) = show lhs ++ " == " ++ show rhs
+  show (Equation lhs LT rhs) = show lhs ++ " < " ++ show rhs
+  show (Equation lhs GT rhs) = show lhs ++ " > " ++ show rhs
+
+data Equations a = Equations [Equation a]
+instance Show a => Show (Equations a) where
+  show (Equations eqs) = unlines (map show eqs)
 
 -- | Lots of things carry around a list of all equivalent bases
 --   For example: if you start with frame N and rotate about Nz to get A, then Nz == Az
 type EquivBases = (HashSet (Basis, Basis))
 
 ------------------------- get equivilant bases ---------------------------
-rotVec :: Rotation -> Vec
-rotVec (RotSpeed v) = v
-rotVec (RotCoord v) = v
-
 class HasEquivBases a where
   equivBases :: a -> EquivBases
 
 instance HasEquivBases Frame where
   equivBases (NewtonianFrame _) = HS.empty
-  equivBases f@(RFrame f0 rot _) = case rotBases of
+  equivBases (RFrame _ (RotSpeed _) _) = HS.empty
+  equivBases f@(RFrame f0 (RotCoord rotVec) _) = case rotBases of
     [Basis frame xyz] -> if frame == f0
                          then HS.insert (Basis f0 xyz, Basis f xyz) (equivBases f0)
                          else HS.empty
     _ -> HS.empty
     where
-      rotBases = HM.keys $ (\(Vec hm) -> hm) (rotVec rot)
+      rotBases = HM.keys $ (\(Vec hm) -> hm) rotVec
 
 instance HasEquivBases Basis where
   equivBases (Basis frame _) = equivBases frame
@@ -204,7 +225,9 @@ instance Show Sca where
   show (SNeg x) = "(-(" ++ show x ++ "))"
 
 instance Show Vec where
-  show (Vec hm) = concat $ intersperse " + " (map show' (HM.toList hm))
+  show (Vec hm)
+    | HM.null hm = "0>"
+    | otherwise = intercalate " + " (map show' (HM.toList hm))
     where
       show' (b, sca@(SAdd _ _)) = "( " ++ show sca ++ " ) * " ++ show b
       show' (b, sca@(SSub _ _)) = "( " ++ show sca ++ " ) * " ++ show b
@@ -235,7 +258,7 @@ zeroVec :: Vec
 zeroVec = Vec HM.empty
 
 removeZeros :: Vec -> Vec
+removeZeros (Vec hm) = Vec $ HM.filter (not . (isVal 0)) hm
 --removeZeros (Vec hm) = trace ("\n-------------\nbefore: "++show hm ++ "\nafter:  "++show ret) $ Vec ret
-removeZeros (Vec hm) = Vec ret
-  where
-    ret = HM.filter (not . (isVal 0)) hm
+--  where
+--    ret = HM.filter (not . (isVal 0)) hm

@@ -6,6 +6,8 @@ module Frames ( ddt
               , partialV
               , cross
               , dot
+              , dyadDot
+              , dyadicDot
               , scale
               , scaleBasis
               , coord
@@ -13,6 +15,7 @@ module Frames ( ddt
               , param
               , isCoord
               , isSpeed
+              , angVelWrtN
               ) where
 
 import Data.Maybe ( catMaybes )
@@ -39,10 +42,10 @@ ddt = flip partial (SExpr time Nothing)
 
 -- | time derivative in a rotating frame using golden rule of vector differentiation
 ddtN :: Vec -> Vec
-ddtN (Vec hm0) = removeZeros $ sum $ map ddtN' (HM.toList hm0)
+ddtN (Vec hm0) = removeZeros $ (\(x,y) -> sum x + sum y) $ unzip $ map ddtN' (HM.toList hm0)
   where
-    ddtN' :: (Basis, Sca) -> Vec
-    ddtN' (basis, sca) = scaleBasis (ddt sca) basis + ddtNBasis basis
+    ddtN' :: (Basis, Sca) -> (Vec,Vec)
+    ddtN' (basis, sca) = (scaleBasis (ddt sca) basis, ddtNBasis basis) -- add these up at the end
       where
         ddtNBasis :: Basis -> Vec
         ddtNBasis (Basis bf _) = (angVelWrtN bf) `cross` (scaleBasis sca basis)
@@ -55,8 +58,10 @@ ddtN (Vec hm0) = removeZeros $ sum $ map ddtN' (HM.toList hm0)
 angVelWrtN :: Frame -> Vec
 angVelWrtN (NewtonianFrame _) = zeroVec
 --angVelWrtN (RFrame frame0 (RotCoordSpeed _ w) _ _) = (angVelWrtN frame0) + w
-angVelWrtN (RFrame frame0 (RotSpeed w) _) = (angVelWrtN frame0) + w
 angVelWrtN (RFrame frame0 (RotCoord q) _) = (angVelWrtN frame0) + partialV q (SExpr time Nothing)
+angVelWrtN b@(RFrame frame0 (RotSpeed (wx,wy,wz)) _) = (angVelWrtN frame0) + w
+  where
+    w = scaleBasis wx (Basis b X) + scaleBasis wy (Basis b Y) + scaleBasis wz (Basis b Z)
 
 isCoord, isSpeed, isTime :: Sca -> Bool
 isCoord (SExpr (ESym _ (SymDependent _ 0 (Sym t))) (Just 0)) = ESym Dvda.Z (Sym t) == time
@@ -196,6 +201,14 @@ dot :: Vec -> Vec -> Sca
 dot (Vec hm0) (Vec hm1) =
   sum [dotBases (b0,s0) (b1,s1) | (b0,s0) <- HM.toList hm0, (b1,s1) <- HM.toList hm1]
 
+-- | dyad dot vector - x*b1>b2> `dyadDot` y*b3> = (x*y*(b2> . b3>)) * b1>
+dyadDot :: Dyad -> Vec -> Vec
+dyadDot (Dyad x b1 b2) vec= scaleBasis scalar b1
+  where
+    scalar = (scaleBasis x b2) `dot` vec
+
+dyadicDot :: Dyadic -> Vec -> Vec
+dyadicDot (Dyadic ((xx,xy,xz), (yx,yy,yz), (zx,zy,zz))) vec = sum $ map (`dyadDot` vec) [xx,xy,xz,yx,yy,yz,zx,zy,zz]
 
 -- | scale a vector by a scalar, returning a vector
 scale :: Sca -> Vec -> Vec
