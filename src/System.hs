@@ -46,7 +46,7 @@ data Body = Particle
             Sca -- ^ mass
             Dyadic -- ^ inertia dyadic
             Vec -- ^ position from N0 to CM
-            Vec -- ^ angular velocity
+            Frame -- ^ reference frame attached to the rigid body (for getting angular velocity)
             Force -- ^ forces on the body
             Torque -- ^ torque on the body
 
@@ -71,8 +71,9 @@ generalizedEffectiveForce gspeed (Particle mass pos _) = (partialV vel gspeed) `
   where
     vel = ddtN pos
     accel = ddtN vel
-generalizedEffectiveForce gspeed (RigidBody mass inertia pos w _ _) = translational + rotational
+generalizedEffectiveForce gspeed (RigidBody mass inertia pos frame _ _) = translational + rotational
   where
+    w = angVelWrtN frame
     vel = ddtN pos
     accel = ddtN vel
     translational = (partialV vel gspeed) `dot` (scale mass accel)
@@ -83,8 +84,9 @@ generalizedForce :: Sca -> Body -> Sca
 generalizedForce gspeed (Particle _ pos (Force force)) = (partialV vel gspeed) `dot` force
   where
     vel = ddtN pos
-generalizedForce gspeed (RigidBody _ _ pos w (Force force) (Torque torque)) = translational + rotational
+generalizedForce gspeed (RigidBody _ _ pos frame (Force force) (Torque torque)) = translational + rotational
   where
+    w = angVelWrtN frame
     vel = ddtN pos
     translational = (partialV vel gspeed) `dot` force
     rotational    = (partialV w gspeed) `dot` torque
@@ -123,8 +125,7 @@ go = do
       wx = speed "wx"
       wy = speed "wy"
       wz = speed "wz"
-      w = scaleBasis wx (Basis b X) + scaleBasis wy (Basis b Y) + scaleBasis wz (Basis b Z)
-      someRigidBody = RigidBody 1 (simpleDyadic 2 3 5 b) r_n02p w (Force 0) (Torque 0)
+      someRigidBody = RigidBody 1 (simpleDyadic 2 3 5 b) r_n02p b (Force 0) (Torque 0)
 
       
   putStrLn $ "r_n02p:            " ++ show r_n02p
@@ -152,7 +153,6 @@ go = do
   print $ kaneEq [someRigidBody] wz
 
 
-
 woo :: IO ()
 woo = do
   let n = NewtonianFrame "N"
@@ -165,9 +165,8 @@ woo = do
       wy = speed "wy"
       wz = speed "wz"
 
-      w = scaleBasis wx (Basis b X) + scaleBasis wy (Basis b Y) + scaleBasis wz (Basis b Z)
       b = RFrame n (RotSpeed (wx,wy,wz)) "B"
-      someRigidBody = RigidBody 1 (simpleDyadic jx jy jz b) 0 w (Force 0) (Torque 0)
+      someRigidBody = RigidBody 1 (simpleDyadic jx jy jz b) 0 b (Force 0) (Torque 0)
 
   print someRigidBody
   putStrLn "kane's eqs: "

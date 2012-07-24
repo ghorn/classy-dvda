@@ -58,7 +58,7 @@ ddtN (Vec hm0) = removeZeros $ (\(x,y) -> sum x + sum y) $ unzip $ map ddtN' (HM
 angVelWrtN :: Frame -> Vec
 angVelWrtN (NewtonianFrame _) = zeroVec
 --angVelWrtN (RFrame frame0 (RotCoordSpeed _ w) _ _) = (angVelWrtN frame0) + w
-angVelWrtN (RFrame frame0 (RotCoord q) _) = (angVelWrtN frame0) + partialV q (SExpr time Nothing)
+angVelWrtN (RFrame frame0 (RotCoord q) _) = angVelWrtN frame0 + partialV q (SExpr time Nothing)
 angVelWrtN b@(RFrame frame0 (RotSpeed (wx,wy,wz)) _) = (angVelWrtN frame0) + w
   where
     w = scaleBasis wx (Basis b X) + scaleBasis wy (Basis b Y) + scaleBasis wz (Basis b Z)
