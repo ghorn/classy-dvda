@@ -1,10 +1,12 @@
 {-# OPTIONS_GHC -Wall #-}
 
-module System ( rotX
+module System ( Body(..)
+              , Torque(..)
+              , Force(..)
+              , simpleDyadic
+              , rotX
               , rotY
               , rotZ
-              , go
-              , woo
               , generalizedForce
               , generalizedEffectiveForce
               , kaneEq
@@ -56,12 +58,12 @@ instance Show Body where
                                                , "position: " ++ show pos
                                                , "force: " ++ show f
                                                ]
-  show (RigidBody mass inertia pos omega (Force force) (Torque torque)) =
+  show (RigidBody mass inertia pos frame (Force force) (Torque torque)) =
     unlines [ "RigidBody"
             , "mass: " ++ show mass
             , "inertia: " ++ show inertia
             , "position: " ++ show pos
-            , "angular velocity: " ++ show omega
+            , "angular velocity in newtonian frame: " ++ show (angVelWrtN frame)
             , "force: " ++ show force
             , "torque: " ++ show torque
             ]
@@ -101,75 +103,3 @@ kaneEq bodies gspeed
 
 kaneEqs :: [Body] -> [Sca] -> [Equation Sca]
 kaneEqs bodies speeds = map (kaneEq bodies) speeds
-
-go :: IO ()
-go = do
-  let q = coord "q"
-      q' = ddt q
-
-      n = NewtonianFrame "N"
-      b = rotZ n q "B"
-
-      len = param "r"
-      --len = 1.3
-
-      r_n02p = scaleBasis len (Basis b X)
-
-      v_pn = ddtN r_n02p
-      a_pn = ddtN v_pn
-
-      nx = scaleBasis 1 (Basis n X)
-
-      someParticle = Particle 1.0 r_n02p (Force 0)
-
-      wx = speed "wx"
-      wy = speed "wy"
-      wz = speed "wz"
-      someRigidBody = RigidBody 1 (simpleDyadic 2 3 5 b) r_n02p b (Force 0) (Torque 0)
-
-      
-  putStrLn $ "r_n02p:            " ++ show r_n02p
-  putStrLn $ "v_pn:              " ++ show v_pn
-  putStrLn $ "partialV v_pn q':  " ++ show (partialV v_pn q')
-  putStrLn $ "a_pn:              " ++ show a_pn
-  putStrLn $ "dot r_n02p v_pn:   " ++ show (dot r_n02p v_pn)
-  putStrLn $ "dot a_pn nx:       " ++ show (dot a_pn nx)
-
-  putStrLn $ "Particle: " ++ show someParticle
-  putStrLn $ "generalized force: " ++ show (generalizedForce q' someParticle)
-  putStrLn $ "generalized effective force: " ++ show (generalizedEffectiveForce q' someParticle)
-
-  putStrLn "------------------------------"
-  putStrLn $ "Rigid Body: " ++ show someRigidBody
-  putStrLn $ "generalized force: " ++ show (generalizedForce q' someRigidBody)
-  putStrLn $ "generalized effective force: " ++ show (generalizedEffectiveForce q' someRigidBody)
-
-  putStrLn "----------------------------"
-  putStrLn "kane's eqs: "
---  print $ kaneEq [someParticle, someRigidBody] q'
-  print $ kaneEq [someRigidBody] q'
-  print $ kaneEq [someRigidBody] wx
-  print $ kaneEq [someRigidBody] wy
-  print $ kaneEq [someRigidBody] wz
-
-
-woo :: IO ()
-woo = do
-  let n = NewtonianFrame "N"
-
-      jx = param "Jx"
-      jy = param "Jy"
-      jz = param "Jz"
-
-      wx = speed "wx"
-      wy = speed "wy"
-      wz = speed "wz"
-
-      b = RFrame n (RotSpeed (wx,wy,wz)) "B"
-      someRigidBody = RigidBody 1 (simpleDyadic jx jy jz b) 0 b (Force 0) (Torque 0)
-
-  print someRigidBody
-  putStrLn "kane's eqs: "
-  print $ kaneEq [someRigidBody] wx
-  print $ kaneEq [someRigidBody] wy
-  print $ kaneEq [someRigidBody] wz
