@@ -27,7 +27,6 @@ import Dvda hiding ( Z(..) )
 import qualified Dvda as Dvda
 import qualified Dvda.Expr as Expr
 import Dvda.Expr ( Expr(..), Const(..) )
-import Dvda.BinUn ( BinOp(..), lassoc, rassoc, showBinary )
 
 data Sca = SExpr (Expr Dvda.Z Double) (Maybe Int)
          | SDot (Basis,Basis) Sca
@@ -194,50 +193,53 @@ instance Num Vec where
   fromInteger _ = error "Num Vec's fromInteger only instanced for 0"
 
 -------------------------- show instances ----------------------------------
-paren :: String -> String
-paren x = "("++ x ++")"
+showInfixBinary :: (Show a, Show b) => Int -> Int -> String -> a -> b -> ShowS
+showInfixBinary d prec op u v = showParen (d > prec) $
+                                showsPrec prec u .
+                                showString op .
+                                showsPrec prec v
 
-parenx :: Sca -> BinOp -> String -> String
-parenx (SExpr (EBinary xop _ _) _) op = if lassoc xop op then id else paren
-parenx (SMul _ _) op =                  if lassoc Mul op then id else paren
-parenx (SDiv _ _) op =                  if lassoc Div op then id else paren
-parenx (SAdd _ _) op =                  if lassoc Add op then id else paren
-parenx (SSub _ _) op =                  if lassoc Sub op then id else paren
-parenx _ _ = id
-
-pareny :: Sca -> BinOp -> String -> String
-pareny (SExpr (EBinary yop _ _) _) op = if rassoc op yop then id else paren
-pareny (SMul _ _) op =                  if rassoc op Mul then id else paren
-pareny (SDiv _ _) op =                  if rassoc op Div then id else paren
-pareny (SAdd _ _) op =                  if rassoc op Add then id else paren
-pareny (SSub _ _) op =                  if rassoc op Sub then id else paren
-pareny _ _ = id
+showInfixBinaryNonAssoc :: (Show a, Show b) => Int -> Int -> String -> a -> b -> ShowS
+showInfixBinaryNonAssoc d prec op u v = showParen (d > prec) $
+                                        showsPrec (prec+1) u .
+                                        showString op .
+                                        showsPrec (prec+1) v
 
 instance Show Sca where
-  show (SExpr x _) = show x
-  show (SDot (b0,b1) x)
-     | isVal 1 x = "( " ++ show b0 ++ " . " ++ show b1 ++ " )"
-     | otherwise = "( " ++ show x ++ " ) * ( " ++ show b0 ++ " . " ++ show b1 ++ " )"
-  show (SMul x y) = parenx x Mul (show x) ++ " " ++ showBinary Mul ++ " " ++ pareny y Mul (show y)
-  show (SDiv x y) = parenx x Div (show x) ++ " " ++ showBinary Div ++ " " ++ pareny y Div (show y)
-  show (SAdd x y) = parenx x Add (show x) ++ " " ++ showBinary Add ++ " " ++ pareny y Add (show y)
-  show (SSub x y) = parenx x Sub (show x) ++ " " ++ showBinary Sub ++ " " ++ pareny y Sub (show y)
-  show (SNeg x) = "(-(" ++ show x ++ "))"
+  showsPrec d (SExpr x _) = showsPrec d x
+  showsPrec d (SDot (b0,b1) x)
+     | isVal 1 x = showInfixBinaryNonAssoc d 5 " . " b0 b1
+     | otherwise = showsPrec d (SMul x (SDot (b0,b1) 1))
+  showsPrec d (SMul x y) = showInfixBinary d 7 " * " x y
+  showsPrec d (SDiv x y) = showInfixBinary d 7 " / " x y
+  showsPrec d (SAdd x y) = showInfixBinary d 6 " + " x y
+  showsPrec d (SSub x y) = showInfixBinary d 6 " - " x y
+  showsPrec d (SNeg x) = showParen (d > prec) $
+                         showString "-" .
+                         showsPrec prec x
+    where
+      prec = 7
 
 instance Show Vec where
-  show (Vec hm)
-    | HM.null hm = "0>"
-    | otherwise = intercalate " + " (map show' (HM.toList hm))
+  showsPrec d (Vec hm)
+    | HM.null hm = showString "0>"
+    | otherwise = showParen (d > 6) $
+                   foldl f (showScaledBasis 6 (head hmlist)) (tail hmlist)
     where
-      show' (b, sca@(SAdd _ _)) = "( " ++ show sca ++ " ) * " ++ show b
-      show' (b, sca@(SSub _ _)) = "( " ++ show sca ++ " ) * " ++ show b
-      show' (b, sca)
-        | isVal 1 sca = show b
-        | otherwise   = show sca ++ " * " ++ show b
+      hmlist = HM.toList hm
+      f acc (b,sca) = acc . (showString " + ") . (showScaledBasis 6 (b,sca))
+      showScaledBasis d' (b, sca)
+        | isVal 1 sca = showsPrec d' b
+        | otherwise = showParen (d' > prec) $
+                      showsPrec prec sca .
+                      showString " * " .
+                      showsPrec prec b
+        where
+          prec = 7
 
 instance Show Basis where
-  show (Basis f xyz) = show f ++ show xyz
-  show (Cross b0 b1) = "( " ++ show b0 ++ " x " ++ show b1 ++ " )"
+  showsPrec _ (Basis f xyz) = showString $ show f ++ show xyz
+  showsPrec d (Cross b0 b1) = showInfixBinaryNonAssoc d 5 " x " b0 b1
 
 instance Show XYZ where
   show X = "x>"
@@ -252,6 +254,7 @@ instance Show Frame where
 -------------------- utils ---------------
 isVal :: Double -> Sca -> Bool
 isVal x (SExpr e _) = Expr.isVal x e
+isVal x (SNeg e) = isVal (-x) e
 isVal _ _ = False
 
 zeroVec :: Vec
