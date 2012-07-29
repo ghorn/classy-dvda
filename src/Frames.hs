@@ -22,8 +22,7 @@ import Data.Maybe ( catMaybes )
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
 
-import Dvda hiding ( scale, vec, Z )
-import qualified Dvda as Dvda
+import Dvda
 import Dvda.Expr ( Expr(..), Sym(..) )
 
 import Types
@@ -57,17 +56,17 @@ ddtN (Vec hm0) = removeZeros $ (\(x,y) -> sum x + sum y) $ unzip $ map ddtN' (HM
 --------------------------------------------------------------------
 angVelWrtN :: Frame -> Vec
 angVelWrtN (NewtonianFrame _) = zeroVec
---angVelWrtN (RFrame frame0 (RotCoordSpeed _ w) _ _) = (angVelWrtN frame0) + w
-angVelWrtN (RFrame frame0 (RotCoord q) _) = angVelWrtN frame0 + partialV q (SExpr time Nothing)
-angVelWrtN b@(RFrame frame0 (RotSpeed (wx,wy,wz)) _) = (angVelWrtN frame0) + w
+--angVelWrtN (RotatedFrame frame0 (RotCoordSpeed _ w) _ _) = (angVelWrtN frame0) + w
+angVelWrtN (RotatedFrame frame0 (RotCoord q) _) = angVelWrtN frame0 + partialV q (SExpr time Nothing)
+angVelWrtN b@(RotatedFrame frame0 (RotSpeed (wx,wy,wz)) _) = (angVelWrtN frame0) + w
   where
     w = scaleBasis wx (Basis b X) + scaleBasis wy (Basis b Y) + scaleBasis wz (Basis b Z)
 
 isCoord, isSpeed, isTime :: Sca -> Bool
-isCoord (SExpr (ESym _ (SymDependent _ 0 (Sym t))) (Just 0)) = ESym Dvda.Z (Sym t) == time
+isCoord (SExpr (ESym (SymDependent _ 0 (Sym t))) (Just 0)) = ESym (Sym t) == time
 isCoord _ = False
 
-isSpeed (SExpr (ESym _ (SymDependent _ _ (Sym t))) (Just 1)) = ESym Dvda.Z (Sym t) == time
+isSpeed (SExpr (ESym (SymDependent _ _ (Sym t))) (Just 1)) = ESym (Sym t) == time
 isSpeed _ = False
 
 isTime (SExpr t Nothing) = t == time
@@ -93,9 +92,9 @@ partial (SDiv x y) arg = x'/y - x/(y*y)*y'
 partial (SAdd x y) arg = (partial x arg) + (partial y arg)
 partial (SSub x y) arg = (partial x arg) - (partial y arg)
 partial (SExpr x (Just k)) a@(SExpr arg _)
-  | isTime a  = SExpr (head (runDeriv x [arg])) (Just (k+1))
-  | otherwise = SExpr (head (runDeriv x [arg])) (Just k)
-partial (SExpr x Nothing) (SExpr arg _) = SExpr (head (runDeriv x [arg])) Nothing
+  | isTime a  = SExpr (head (rad x [arg])) (Just (k+1))
+  | otherwise = SExpr (head (rad x [arg])) (Just k)
+partial (SExpr x Nothing) (SExpr arg _) = SExpr (head (rad x [arg])) Nothing
 partial (SDot (b0,b1) s) arg = (SDot (b0,b1) 1)*(partial s arg) + dDot*s
   where
     v0 = scaleBasis 1 b0
@@ -223,5 +222,5 @@ scaleBasis :: Sca -> Basis -> Vec
 scaleBasis s b = removeZeros $ Vec (HM.singleton b s)
 
 -- | the independent variable time used in taking time derivatives
-time :: Expr Dvda.Z Double
+time :: Expr Double
 time = sym "t"

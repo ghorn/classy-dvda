@@ -23,29 +23,16 @@ import Data.HashSet( HashSet )
 import qualified Data.HashSet as HS
 import Data.List ( intercalate )
 
-import Dvda hiding ( Z(..) )
-import qualified Dvda as Dvda
 import qualified Dvda.Expr as Expr
-import Dvda.Expr ( Expr(..), Const(..) )
+import Dvda.Expr ( Expr(..) )
 
-data Sca = SExpr (Expr Dvda.Z Double) (Maybe Int)
+data Sca = SExpr (Expr Double) (Maybe Int)
          | SDot (Basis,Basis) Sca
          | SNeg Sca
          | SAdd Sca Sca
          | SSub Sca Sca
          | SMul Sca Sca
          | SDiv Sca Sca
-
-instance Eq Sca where
-  (==) (SExpr x mx) (SExpr y my) = x == y && mx == my
-  (==) (SDot (bx0, bx1) x) (SDot (by0, by1) y) = x == y && or [bx0 == by0 && bx1 == by1, bx0 == by1 && bx1 == by0]
-  (==) (SNeg x) (SNeg y) = x == y
-  (==) (SAdd x0 x1) (SAdd y0 y1) = x0 == y0 && x1 == y1
-  (==) (SSub x0 x1) (SSub y0 y1) = x0 == y0 && x1 == y1
-  (==) (SMul x0 x1) (SMul y0 y1) = x0 == y0 && x1 == y1
-  (==) (SDiv x0 x1) (SDiv y0 y1) = x0 == y0 && x1 == y1
-  (==) _ _ = False
-  
 
 data Basis = Basis Frame XYZ
            | Cross Basis Basis deriving Eq
@@ -55,7 +42,7 @@ data Vec = Vec (HashMap Basis Sca) deriving Eq
 data XYZ = X | Y | Z deriving Eq
 
 data Frame = NewtonianFrame String
-           | RFrame Frame Rotation String deriving Eq
+           | RotatedFrame Frame Rotation String deriving Eq
 
 data Rotation = RotSpeed (Sca,Sca,Sca)
               | RotCoord Vec deriving (Show, Eq)
@@ -81,6 +68,17 @@ data Equations a = Equations [Equation a]
 instance Show a => Show (Equations a) where
   show (Equations eqs) = unlines (map show eqs)
 
+instance Eq Sca where
+  (==) (SExpr x mx) (SExpr y my) = x == y && mx == my
+  (==) (SDot (bx0, bx1) x) (SDot (by0, by1) y) = x == y && or [bx0 == by0 && bx1 == by1, bx0 == by1 && bx1 == by0]
+  (==) (SNeg x) (SNeg y) = x == y
+  (==) (SAdd x0 x1) (SAdd y0 y1) = x0 == y0 && x1 == y1
+  (==) (SSub x0 x1) (SSub y0 y1) = x0 == y0 && x1 == y1
+  (==) (SMul x0 x1) (SMul y0 y1) = x0 == y0 && x1 == y1
+  (==) (SDiv x0 x1) (SDiv y0 y1) = x0 == y0 && x1 == y1
+  (==) _ _ = False
+  
+
 -- | Lots of things carry around a list of all equivalent bases
 --   For example: if you start with frame N and rotate about Nz to get A, then Nz == Az
 type EquivBases = (HashSet (Basis, Basis))
@@ -91,8 +89,8 @@ class HasEquivBases a where
 
 instance HasEquivBases Frame where
   equivBases (NewtonianFrame _) = HS.empty
-  equivBases (RFrame _ (RotSpeed _) _) = HS.empty
-  equivBases f@(RFrame f0 (RotCoord rotVec) _) = case rotBases of
+  equivBases (RotatedFrame _ (RotSpeed _) _) = HS.empty
+  equivBases f@(RotatedFrame f0 (RotCoord rotVec) _) = case rotBases of
     [Basis frame xyz] -> if frame == f0
                          then HS.insert (Basis f0 xyz, Basis f xyz) (equivBases f0)
                          else HS.empty
@@ -134,7 +132,7 @@ instance Hashable XYZ where
 
 instance Hashable Frame where
   hash (NewtonianFrame name) = hash "NewtonianFrame" `combine` hash name
-  hash (RFrame frame rot name) = hash "RFrame" `combine` hash frame `combine` hash rot `combine` hash name
+  hash (RotatedFrame frame rot name) = hash "RotatedFrame" `combine` hash frame `combine` hash rot `combine` hash name
 
 instance Hashable Rotation where
   hash (RotCoord q)        = hash "RotCoord" `combine` hash q
@@ -167,7 +165,7 @@ instance Num Sca where
 
   abs = error "abs not defined for Num Sca"
   signum = error "signum not defined for Num Sca"
-  fromInteger = (\x -> x Nothing) . SExpr . EConst . (CSingleton Dvda.Z) . fromInteger
+  fromInteger = (\x -> x Nothing) . SExpr . fromInteger
   negate (SNeg x) = x
   negate x = SNeg x
 
@@ -179,7 +177,7 @@ instance Fractional Sca where
     | otherwise = case (x,y) of (SExpr x' _, SExpr y' _) -> SExpr (x' / y') Nothing
                                 _ -> SDiv x y
 
-  fromRational = (\x -> x Nothing) . SExpr . EConst . (CSingleton Dvda.Z) . fromRational
+  fromRational = (\x -> x Nothing) . SExpr . fromRational
 
 instance Num Vec where
   (+) (Vec x) (Vec y) = removeZeros $ Vec (HM.unionWith (+) x y)
@@ -248,7 +246,7 @@ instance Show XYZ where
 
 instance Show Frame where
   show (NewtonianFrame n) = n
-  show (RFrame _ _ n) = n
+  show (RotatedFrame _ _ n) = n
 
 
 -------------------- utils ---------------

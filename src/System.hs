@@ -17,7 +17,7 @@ import Frames
 import Types
 
 rotXYZ :: XYZ -> Frame -> Sca -> String -> Frame
-rotXYZ xyz f0 q name = RFrame f0 (RotCoord (scaleBasis q rotationBasis)) name
+rotXYZ xyz f0 q name = RotatedFrame f0 (RotCoord (scaleBasis q rotationBasis)) name
   where
     rotationBasis = Basis f0 xyz
 
@@ -41,16 +41,27 @@ simpleDyadic jx jy jz frame =
     bz = Basis frame Z
 
 data Body = Particle
-            Sca -- ^ mass
-            Vec -- ^ position from N0 to CM
-            Force -- ^ forces on the body
+            Sca --  mass
+            Vec --  position from N0 to CM
+            Force --  forces on the body
           | RigidBody
-            Sca -- ^ mass
-            Dyadic -- ^ inertia dyadic
-            Vec -- ^ position from N0 to CM
-            Frame -- ^ reference frame attached to the rigid body (for getting angular velocity)
-            Force -- ^ forces on the body
-            Torque -- ^ torque on the body
+            Sca --  mass
+            Dyadic --  inertia dyadic
+            Vec --  position from N0 to CM
+            Frame --  reference frame attached to the rigid body (for getting angular velocity)
+            Force --  forces on the body
+            Torque --  torque on the body
+--data Body = Particle
+--            Sca -- ^ mass
+--            Vec -- ^ position from N0 to CM
+--            Force -- ^ forces on the body
+--          | RigidBody
+--            Sca -- ^ mass
+--            Dyadic -- ^ inertia dyadic
+--            Vec -- ^ position from N0 to CM
+--            Frame -- ^ reference frame attached to the rigid body (for getting angular velocity)
+--            Force -- ^ forces on the body
+--            Torque -- ^ torque on the body
 
 instance Show Body where
   show (Particle mass pos (Force f)) = unlines [ "Particle"
