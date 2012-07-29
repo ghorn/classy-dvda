@@ -8,6 +8,12 @@ import System
 import Frames
 import Types
 
+xyzVec :: (Sca,Sca,Sca) -> Frame -> Vec
+xyzVec (sx,sy,sz) frame =
+  scaleBasis sx (Basis frame X) +
+  scaleBasis sy (Basis frame Y) +
+  scaleBasis sz (Basis frame Z)
+
 simple :: IO ()
 simple = do
   let n = NewtonianFrame "N"
@@ -15,24 +21,24 @@ simple = do
       jx = param "Jx"
       jy = param "Jy"
       jz = param "Jz"
-
+     
       wx = speed "wx"
       wy = speed "wy"
       wz = speed "wz"
-
+     
       mx = param "Tx"
       my = param "Ty"
       mz = param "Tz"
-      torque = Torque $ scaleBasis mx (Basis b X) + scaleBasis my (Basis b Y) + scaleBasis mz (Basis b Z)
---      torque = Torque $ scaleBasis mx (Basis n X) + scaleBasis my (Basis n Y) + scaleBasis mz (Basis n Z)
+      torque = Torque $ xyzVec (mx,my,mz) b
+--      torque = Torque $ xyzVec (mx,my,mz) n
 
-      b = RFrame n (RotSpeed (wx,wy,wz)) "B"
+      b = RotatedFrame n (RotSpeed (wx,wy,wz)) "B"
       body = RigidBody 1 (simpleDyadic jx jy jz b) 0 b (Force 0) torque
 
   print body
   putStrLn "kane's eqs: "
   mapM_ print $ kaneEqs [body] [wx, wy, wz]
-      
+
 
 blah :: IO ()
 blah = do
@@ -83,5 +89,3 @@ blah = do
   print $ kaneEq [someRigidBody] wx
   print $ kaneEq [someRigidBody] wy
   print $ kaneEq [someRigidBody] wz
-
-
