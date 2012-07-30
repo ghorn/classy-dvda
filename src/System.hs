@@ -55,7 +55,7 @@ instance Show Body where
             ]
 
 generalizedEffectiveForce :: Sca -> Body -> Sca
-generalizedEffectiveForce gspeed (Particle mass pos _) = (partialV vel gspeed) `dot` (scale mass accel)
+generalizedEffectiveForce gspeed (Particle mass pos _) = partialV vel gspeed `dot` scale mass accel
   where
     vel = ddtN pos
     accel = ddtN vel
@@ -64,20 +64,20 @@ generalizedEffectiveForce gspeed (RigidBody mass inertia pos frame _ _) = transl
     w = angVelWrtN frame
     vel = ddtN pos
     accel = ddtN vel
-    translational = (partialV vel gspeed) `dot` (scale mass accel)
-    rotational = (partialV w gspeed) `dot` effectiveTorque
-    effectiveTorque = inertia `dyadicDot` (ddtN w) + w `cross` (inertia `dyadicDot` w) + mass `scale` (pos `cross`accel)
+    translational = partialV vel gspeed `dot` scale mass accel
+    rotational = partialV w gspeed `dot` effectiveTorque
+    effectiveTorque = inertia `dyadicDot` ddtN w + w `cross` (inertia `dyadicDot` w) + mass `scale` (pos `cross`accel)
 
 generalizedForce :: Sca -> Body -> Sca
-generalizedForce gspeed (Particle _ pos (Force force)) = (partialV vel gspeed) `dot` force
+generalizedForce gspeed (Particle _ pos (Force force)) = partialV vel gspeed `dot` force
   where
     vel = ddtN pos
 generalizedForce gspeed (RigidBody _ _ pos frame (Force force) (Torque torque)) = translational + rotational
   where
     w = angVelWrtN frame
     vel = ddtN pos
-    translational = (partialV vel gspeed) `dot` force
-    rotational    = (partialV w gspeed) `dot` torque
+    translational = partialV vel gspeed `dot` force
+    rotational    = partialV w gspeed `dot` torque
 
 kaneEq :: [Body] -> Sca -> Equation Sca
 kaneEq bodies gspeed
@@ -88,4 +88,4 @@ kaneEq bodies gspeed
                 (sum $ map (generalizedEffectiveForce gspeed) bodies)
 
 kaneEqs :: [Body] -> [Sca] -> [Equation Sca]
-kaneEqs bodies speeds = map (kaneEq bodies) speeds
+kaneEqs bodies = map (kaneEq bodies)

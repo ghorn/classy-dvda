@@ -28,7 +28,7 @@ wz = speed "wz"
 
 m = param "m"
 kiteFrame = frameWithAngVel n (wx,wy,wz) "K"
-r_n02k = xVec rArm carouselFrame + xVec rLine lineFrame
+r'n0'k = xVec rArm carouselFrame + xVec rLine lineFrame
 
 fx = param "Fx"
 fy = param "Fy"
@@ -39,10 +39,10 @@ mz = param "Tz"
 force =  Force  $ xyzVec (fx,fy,fz) kiteFrame
 torque = Torque $ xyzVec (mx,my,mz) kiteFrame
 
-kite = RigidBody m (simpleDyadic jx jy jz kiteFrame) r_n02k kiteFrame force torque
+kite = RigidBody m (simpleDyadic jx jy jz kiteFrame) r'n0'k kiteFrame force torque
 
-kitesys :: IO ()
-kitesys = do
+run :: IO ()
+run = do
   print kite
   putStrLn "kane's eqs: "
   mapM_ print $ kaneEqs [kite] [wx,wy,wz,ddt delta]

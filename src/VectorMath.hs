@@ -36,7 +36,7 @@ ddtN (Vec hm0) = removeZeros $ (\(x,y) -> sum x + sum y) $ unzip $ map ddtN' (HM
     ddtN' (basis, sca) = (scaleBasis (ddt sca) basis, ddtNBasis basis) -- add these up at the end
       where
         ddtNBasis :: Basis -> Vec
-        ddtNBasis (Basis bf _) = (angVelWrtN bf) `cross` (scaleBasis sca basis)
+        ddtNBasis (Basis bf _) = angVelWrtN bf `cross` scaleBasis sca basis
         ddtNBasis (Cross bf0 bf1) = ddtN v0 `cross` v1 + v0 `cross` ddtN v1
           where
             v0 = scaleBasis 1 bf0
@@ -47,7 +47,7 @@ angVelWrtN :: Frame -> Vec
 angVelWrtN NewtonianFrame = zeroVec
 --angVelWrtN (RotatedFrame frame0 (RotCoordSpeed _ w) _ _) = (angVelWrtN frame0) + w
 angVelWrtN (RotatedFrame frame0 (RotCoord q) _) = angVelWrtN frame0 + partialV q (SExpr time Nothing)
-angVelWrtN b@(RotatedFrame frame0 (RotSpeed (wx,wy,wz)) _) = (angVelWrtN frame0) + w
+angVelWrtN b@(RotatedFrame frame0 (RotSpeed (wx,wy,wz)) _) = angVelWrtN frame0 + w
   where
     w = scaleBasis wx (Basis b X) + scaleBasis wy (Basis b Y) + scaleBasis wz (Basis b Z)
 
@@ -78,25 +78,25 @@ partial (SDiv x y) arg = x'/y - x/(y*y)*y'
   where
     x' = partial x arg
     y' = partial y arg
-partial (SAdd x y) arg = (partial x arg) + (partial y arg)
-partial (SSub x y) arg = (partial x arg) - (partial y arg)
+partial (SAdd x y) arg = partial x arg + partial y arg
+partial (SSub x y) arg = partial x arg - partial y arg
 partial (SExpr x (Just k)) a@(SExpr arg _)
   | isTime a  = SExpr (head (rad x [arg])) (Just (k+1))
   | otherwise = SExpr (head (rad x [arg])) (Just k)
 partial (SExpr x Nothing) (SExpr arg _) = SExpr (head (rad x [arg])) Nothing
-partial (SDot (b0,b1) s) arg = (SDot (b0,b1) 1)*(partial s arg) + dDot*s
+partial (SDot (b0,b1) s) arg = SDot (b0,b1) 1 * partial s arg + dDot*s
   where
     v0 = scaleBasis 1 b0
     v1 = scaleBasis 1 b1
     dDot
       | isTime arg = ddtN v0 `dot` v1 + v0 `dot` ddtN v1
       | isSpeed arg = 0
-      | otherwise = error $ "can't take partial of SDot w.r.t anything except time or generalied speed"
+      | otherwise = error "can't take partial of SDot w.r.t anything except time or generalied speed"
 
 -- | partial derivative, if the argument is time this will be a full derivative
 --   but will not apply the golden rule of vector differentiation
 partialV :: Vec -> Sca -> Vec
-partialV (Vec hm) arg = removeZeros $ Vec (HM.map (flip partial arg) hm)
+partialV (Vec hm) arg = removeZeros $ Vec (HM.map (`partial` arg) hm)
 
 
 ------------------------------ utilities -------------------------------------
@@ -193,7 +193,7 @@ dot (Vec hm0) (Vec hm1) =
 dyadDot :: Dyad -> Vec -> Vec
 dyadDot (Dyad x b1 b2) vec= scaleBasis scalar b1
   where
-    scalar = (scaleBasis x b2) `dot` vec
+    scalar = scaleBasis x b2 `dot` vec
 
 dyadicDot :: Dyadic -> Vec -> Vec
 dyadicDot (Dyadic ((xx,xy,xz), (yx,yy,yz), (zx,zy,zz))) vec = sum $ map (`dyadDot` vec) [xx,xy,xz,yx,yy,yz,zx,zy,zz]

@@ -70,7 +70,8 @@ instance Show a => Show (Equations a) where
 
 instance Eq Sca where
   (==) (SExpr x mx) (SExpr y my) = x == y && mx == my
-  (==) (SDot (bx0, bx1) x) (SDot (by0, by1) y) = x == y && or [bx0 == by0 && bx1 == by1, bx0 == by1 && bx1 == by0]
+  (==) (SDot (bx0, bx1) x) (SDot (by0, by1) y) =
+    x == y && ((bx0 == by0 && bx1 == by1) || (bx0 == by1 && bx1 == by0))
   (==) (SNeg x) (SNeg y) = x == y
   (==) (SAdd x0 x1) (SAdd y0 y1) = x0 == y0 && x1 == y1
   (==) (SSub x0 x1) (SSub y0 y1) = x0 == y0 && x1 == y1
@@ -100,7 +101,7 @@ instance HasEquivBases Frame where
 
 instance HasEquivBases Basis where
   equivBases (Basis frame _) = equivBases frame
-  equivBases (Cross b0 b1) = HS.union (equivBases b0) (equivBases b1)
+  equivBases (Cross b0 b1) = equivBases b0 `HS.union` equivBases b1
 
 
 -------------------------- hashable instances ------------------------------------
@@ -225,7 +226,7 @@ instance Show Vec where
                    foldl f (showScaledBasis 6 (head hmlist)) (tail hmlist)
     where
       hmlist = HM.toList hm
-      f acc (b,sca) = acc . (showString " + ") . (showScaledBasis 6 (b,sca))
+      f acc (b,sca) = acc . showString " + " . showScaledBasis 6 (b,sca)
       showScaledBasis d' (b, sca)
         | isVal 1 sca = showsPrec d' b
         | otherwise = showParen (d' > prec) $
@@ -259,7 +260,7 @@ zeroVec :: Vec
 zeroVec = Vec HM.empty
 
 removeZeros :: Vec -> Vec
-removeZeros (Vec hm) = Vec $ HM.filter (not . (isVal 0)) hm
+removeZeros (Vec hm) = Vec $ HM.filter (not . isVal 0) hm
 --removeZeros (Vec hm) = trace ("\n-------------\nbefore: "++show hm ++ "\nafter:  "++show ret) $ Vec ret
 --  where
 --    ret = HM.filter (not . (isVal 0)) hm
