@@ -1,22 +1,20 @@
 {-# OPTIONS_GHC -Wall #-}
 
-module Frames ( ddt
-              , ddtN
-              , partial
-              , partialV
-              , cross
-              , dot
-              , dyadDot
-              , dyadicDot
-              , scale
-              , scaleBasis
-              , coord
-              , speed
-              , param
-              , isCoord
-              , isSpeed
-              , angVelWrtN
-              ) where
+module VectorMath ( ddt
+                  , ddtN
+                  , partial
+                  , partialV
+                  , cross
+                  , dot
+                  , dyadDot
+                  , dyadicDot
+                  , scale
+                  , scaleBasis
+                  , isCoord
+                  , isSpeed
+                  , angVelWrtN
+                  , time
+                  ) where
 
 import Data.Maybe ( catMaybes )
 import qualified Data.HashMap.Lazy as HM
@@ -26,15 +24,6 @@ import Dvda
 import Dvda.Expr ( Expr(..), Sym(..) )
 
 import Types
-
-coord :: String -> Sca
-coord name = SExpr (symDependent name time) (Just 0)
-
-speed :: String -> Sca
-speed name = SExpr (symDependent name time) (Just 1)
-
-param :: String -> Sca
-param name = SExpr (sym name) Nothing
 
 ddt :: Sca -> Sca
 ddt = flip partial (SExpr time Nothing)
@@ -55,7 +44,7 @@ ddtN (Vec hm0) = removeZeros $ (\(x,y) -> sum x + sum y) $ unzip $ map ddtN' (HM
 
 --------------------------------------------------------------------
 angVelWrtN :: Frame -> Vec
-angVelWrtN (NewtonianFrame _) = zeroVec
+angVelWrtN NewtonianFrame = zeroVec
 --angVelWrtN (RotatedFrame frame0 (RotCoordSpeed _ w) _ _) = (angVelWrtN frame0) + w
 angVelWrtN (RotatedFrame frame0 (RotCoord q) _) = angVelWrtN frame0 + partialV q (SExpr time Nothing)
 angVelWrtN b@(RotatedFrame frame0 (RotSpeed (wx,wy,wz)) _) = (angVelWrtN frame0) + w

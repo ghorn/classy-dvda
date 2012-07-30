@@ -14,7 +14,8 @@ cabal-version:       >=1.8
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Frames,
+  exposed-modules:     Classy,
+                       VectorMath,
                        System,
                        Types
   -- other-modules:       

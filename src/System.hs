@@ -3,42 +3,17 @@
 module System ( Body(..)
               , Torque(..)
               , Force(..)
-              , simpleDyadic
-              , rotX
-              , rotY
-              , rotZ
               , generalizedForce
               , generalizedEffectiveForce
               , kaneEq
               , kaneEqs
               ) where
 
-import Frames
+import VectorMath
 import Types
-
-rotXYZ :: XYZ -> Frame -> Sca -> String -> Frame
-rotXYZ xyz f0 q name = RotatedFrame f0 (RotCoord (scaleBasis q rotationBasis)) name
-  where
-    rotationBasis = Basis f0 xyz
-
-rotX,rotY,rotZ :: Frame -> Sca -> String -> Frame
-rotX = rotXYZ X
-rotY = rotXYZ Y
-rotZ = rotXYZ Z
 
 data Force = Force Vec deriving Show
 data Torque = Torque Vec deriving Show
-
-simpleDyadic :: Sca -> Sca -> Sca -> Frame -> Dyadic
-simpleDyadic jx jy jz frame =
-  Dyadic ( (Dyad jx bx bx, Dyad  0 bx by, Dyad  0 bx bz)
-         , (Dyad  0 by bx, Dyad jy by by, Dyad  0 by bz)
-         , (Dyad  0 bz bx, Dyad  0 bz by, Dyad jz bz bz)
-         )
-  where
-    bx = Basis frame X
-    by = Basis frame Y
-    bz = Basis frame Z
 
 data Body = Particle
             Sca --  mass

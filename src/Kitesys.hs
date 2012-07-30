@@ -2,11 +2,9 @@
 
 module Kitesys where
 
-import System
-import Frames
-import Types
+import Classy
 
-n = NewtonianFrame "N"
+n = newtonianFrame
 
 rArm = param "R"
 delta = coord "d"
@@ -16,7 +14,7 @@ carouselFrame = rotZ n delta "C"
 lineWy = speed "lwz"
 lineWz = speed "lwy"
 
-lineFrame = RotatedFrame carouselFrame (RotSpeed (0,lineWy,lineWz)) "L"
+lineFrame = frameWithAngVel carouselFrame (0,lineWy,lineWz) "L"
 
 rLine = param "r"
 
@@ -29,8 +27,8 @@ wy = speed "wy"
 wz = speed "wz"
 
 m = param "m"
-kiteFrame = RotatedFrame n (RotSpeed (wx,wy,wz)) "K"
-r_n02k = scaleBasis rArm (Basis carouselFrame X) + scaleBasis rLine (Basis lineFrame X)
+kiteFrame = frameWithAngVel n (wx,wy,wz) "K"
+r_n02k = xVec rArm carouselFrame + xVec rLine lineFrame
 
 fx = param "Fx"
 fy = param "Fy"
@@ -38,8 +36,8 @@ fz = param "Fz"
 mx = param "Tx"
 my = param "Ty"
 mz = param "Tz"
-force =  Force  $ scaleBasis fx (Basis n X) + scaleBasis fy (Basis n Y) + scaleBasis fz (Basis n Z)
-torque = Torque $ scaleBasis mx (Basis n X) + scaleBasis my (Basis n Y) + scaleBasis mz (Basis n Z)
+force =  Force  $ xyzVec (fx,fy,fz) kiteFrame
+torque = Torque $ xyzVec (mx,my,mz) kiteFrame
 
 kite = RigidBody m (simpleDyadic jx jy jz kiteFrame) r_n02k kiteFrame force torque
 

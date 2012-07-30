@@ -41,7 +41,7 @@ data Vec = Vec (HashMap Basis Sca) deriving Eq
 
 data XYZ = X | Y | Z deriving Eq
 
-data Frame = NewtonianFrame String
+data Frame = NewtonianFrame
            | RotatedFrame Frame Rotation String deriving Eq
 
 data Rotation = RotSpeed (Sca,Sca,Sca)
@@ -88,7 +88,7 @@ class HasEquivBases a where
   equivBases :: a -> EquivBases
 
 instance HasEquivBases Frame where
-  equivBases (NewtonianFrame _) = HS.empty
+  equivBases NewtonianFrame = HS.empty
   equivBases (RotatedFrame _ (RotSpeed _) _) = HS.empty
   equivBases f@(RotatedFrame f0 (RotCoord rotVec) _) = case rotBases of
     [Basis frame xyz] -> if frame == f0
@@ -131,7 +131,7 @@ instance Hashable XYZ where
   hash Z = hash "Z"
 
 instance Hashable Frame where
-  hash (NewtonianFrame name) = hash "NewtonianFrame" `combine` hash name
+  hash NewtonianFrame = hash "NewtonianFrame"
   hash (RotatedFrame frame rot name) = hash "RotatedFrame" `combine` hash frame `combine` hash rot `combine` hash name
 
 instance Hashable Rotation where
@@ -245,7 +245,7 @@ instance Show XYZ where
   show Z = "z>"
 
 instance Show Frame where
-  show (NewtonianFrame n) = n
+  show NewtonianFrame = "N"
   show (RotatedFrame _ _ n) = n
 
 

@@ -4,19 +4,11 @@ module Examples ( simple
                 , blah
                 ) where
 
-import System
-import Frames
-import Types
-
-xyzVec :: (Sca,Sca,Sca) -> Frame -> Vec
-xyzVec (sx,sy,sz) frame =
-  scaleBasis sx (Basis frame X) +
-  scaleBasis sy (Basis frame Y) +
-  scaleBasis sz (Basis frame Z)
+import Classy
 
 simple :: IO ()
 simple = do
-  let n = NewtonianFrame "N"
+  let n = newtonianFrame
 
       jx = param "Jx"
       jy = param "Jy"
@@ -32,7 +24,7 @@ simple = do
       torque = Torque $ xyzVec (mx,my,mz) b
 --      torque = Torque $ xyzVec (mx,my,mz) n
 
-      b = RotatedFrame n (RotSpeed (wx,wy,wz)) "B"
+      b = frameWithAngVel n (wx,wy,wz) "B"
       body = RigidBody 1 (simpleDyadic jx jy jz b) 0 b (Force 0) torque
 
   print body
@@ -45,18 +37,18 @@ blah = do
   let q = coord "q"
       q' = ddt q
 
-      n = NewtonianFrame "N"
+      n = newtonianFrame
       b = rotZ n q "B"
 
       len = param "r"
       --len = 1.3
 
-      r_n02p = scaleBasis len (Basis b X)
+      r_n02p = xVec len b
 
       v_pn = ddtN r_n02p
       a_pn = ddtN v_pn
 
-      nx = scaleBasis 1 (Basis n X)
+      nx = xVec 1 n
 
       someParticle = Particle 1.0 r_n02p (Force 0)
 
