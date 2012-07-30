@@ -50,7 +50,8 @@ data Rotation = RotSpeed (Sca,Sca,Sca)
 
 data Dyad = Dyad Sca Basis Basis
 instance Show Dyad where
-  show (Dyad x b1 b2) = "(" ++ show x ++ ")*" ++ show b1 ++ show b2
+  showsPrec d (Dyad x b1 b2) = showParen (d > 7) $
+                               showsPrec 7 x . showString "*" . showsPrec 7 b1 . showsPrec 7 b2
 
 data Dyadic = Dyadic ((Dyad, Dyad, Dyad), (Dyad, Dyad, Dyad), (Dyad, Dyad, Dyad))
 instance Show Dyadic where
@@ -63,6 +64,9 @@ instance Show a => Show (Equation a) where
   show (Equation lhs EQ rhs) = show lhs ++ " == " ++ show rhs
   show (Equation lhs LT rhs) = show lhs ++ " < " ++ show rhs
   show (Equation lhs GT rhs) = show lhs ++ " > " ++ show rhs
+
+  showList [x] = showString (show x)
+  showList xs = showString $ intercalate "\n\n" $ map show xs
 
 data Equations a = Equations [Equation a]
 instance Show a => Show (Equations a) where

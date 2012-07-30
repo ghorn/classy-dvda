@@ -29,7 +29,7 @@ simple = do
 
   print body
   putStrLn "kane's eqs: "
-  mapM_ print $ kaneEqs [body] [wx, wy, wz]
+  print $ kaneEqs [body] [wx, wy, wz]
 
 
 blah :: IO ()

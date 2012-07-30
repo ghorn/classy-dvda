@@ -45,4 +45,4 @@ run :: IO ()
 run = do
   print kite
   putStrLn "kane's eqs: "
-  mapM_ print $ kaneEqs [kite] [wx,wy,wz,ddt delta]
+  print $ kaneEqs [kite] [wx,wy,wz,ddt delta]
