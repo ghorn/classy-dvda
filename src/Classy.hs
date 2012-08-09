@@ -40,7 +40,7 @@ module Classy ( -- * refernce frames
                 -- * mechanical system and dynamics
               , Body(..)
               , Torque(..)
-              , Force(..)
+              , Forces(..)
               , generalizedForce
               , generalizedEffectiveForce
               , kaneEq

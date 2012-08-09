@@ -36,7 +36,7 @@ fz = param "Fz"
 mx = param "Tx"
 my = param "Ty"
 mz = param "Tz"
-force =  Force  $ xyzVec (fx,fy,fz) kiteFrame
+force =  Forces  [(r'n0'k, xyzVec (fx,fy,fz) kiteFrame)]
 torque = Torque $ xyzVec (mx,my,mz) kiteFrame
 
 kite = RigidBody m (simpleDyadic jx jy jz kiteFrame) r'n0'k kiteFrame force torque

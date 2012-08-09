@@ -2,7 +2,7 @@
 
 module System ( Body(..)
               , Torque(..)
-              , Force(..)
+              , Forces(..)
               , getCMPos
               , generalizedForce
               , generalizedEffectiveForce
@@ -17,30 +17,38 @@ module System ( Body(..)
 import VectorMath
 import Types
 
-data Force = Force Vec deriving Show
+-- | pure torque
 data Torque = Torque Vec deriving Show
+
+-- | Forces are defined as list of tuples of (where force is applied, force being applied)
+data Forces = Force (Point, Vec)
+            | Forces [(Point, Vec)] deriving Show
+
+toForces :: Forces -> [(Point, Vec)]
+toForces (Force x) = [x]
+toForces (Forces xs) = xs
 
 data Body = Particle
             Sca --  mass
             Point --  position from N0 to CM
-            Force --  forces on the body
+            Forces --  forces on the body
           | RigidBody
             Sca --  mass
             Dyadic --  inertia dyadic
             Point --  position from N0 to CM
             Frame --  reference frame attached to the rigid body (for getting angular velocity)
-            Force --  forces on the body
+            Forces --  forces on the body
             Torque --  torque on the body
 --data Body = Particle
 --            Sca -- ^ mass
 --            Vec -- ^ position from N0 to CM
---            Force -- ^ forces on the body
+--            Forces -- ^ forces on the body
 --          | RigidBody
 --            Sca -- ^ mass
 --            Dyadic -- ^ inertia dyadic
 --            Vec -- ^ position from N0 to CM
 --            Frame -- ^ reference frame attached to the rigid body (for getting angular velocity)
---            Force -- ^ forces on the body
+--            Forces -- ^ forces on the body
 --            Torque -- ^ torque on the body
 
 -- | get center of mass position
@@ -49,18 +57,18 @@ getCMPos (Particle _ p _) = p
 getCMPos (RigidBody _ _ p _ _ _) = p
 
 instance Show Body where
-  show (Particle mass pos (Force f)) = unlines [ "Particle"
-                                               , "mass: " ++ show mass
-                                               , "position: " ++ show pos
-                                               , "force: " ++ show f
-                                               ]
-  show (RigidBody mass inertia pos frame (Force force) (Torque torque)) =
+  show (Particle mass pos forces) = unlines [ "Particle"
+                                            , "mass: " ++ show mass
+                                            , "position: " ++ show pos
+                                            , "forces: " ++ show forces
+                                            ]
+  show (RigidBody mass inertia pos frame forces (Torque torque)) =
     unlines [ "RigidBody"
             , "mass: " ++ show mass
             , "inertia: " ++ show inertia
             , "position: " ++ show pos
             , "angular velocity in newtonian frame: " ++ show (angVelWrtN frame)
-            , "force: " ++ show force
+            , "forces: " ++ show forces
             , "torque: " ++ show torque
             ]
 
@@ -82,15 +90,20 @@ generalizedEffectiveForce gspeed (RigidBody mass inertia pos frame _ _) = transl
 -- can only take moment of effective force about cm right now
 
 generalizedForce :: Sca -> Body -> Sca
-generalizedForce gspeed (Particle _ pos (Force force)) = partialV vel gspeed `dot` force
+generalizedForce gspeed (Particle _ pos forces) = partialV vel gspeed `dot` (sum $ map snd (toForces forces))
   where
     vel = ddtNp pos
-generalizedForce gspeed (RigidBody _ _ pos frame (Force force) (Torque torque)) = translational + rotational
+generalizedForce gspeed (RigidBody _ _ pos frame forces' (Torque torque)) = translational + rotational
   where
+    forces :: [(Point, Vec)]
+    forces = toForces forces'
     w = angVelWrtN frame
     vel = ddtNp pos
-    translational = partialV vel gspeed `dot` force
-    rotational    = partialV w gspeed `dot` torque
+    translational = partialV vel gspeed `dot` (sum $ map snd forces)
+    rotational    = partialV w gspeed `dot` (torque + (sum $ map (\(p,f) -> (subtractPoints p pos) `cross` f) forces))
+      where
+        subtractPoints :: Point -> Point -> Vec
+        subtractPoints vx vy = (vecFromPoint vx) - (vecFromPoint vy)
 
 kaneEq :: [Body] -> Sca -> Equation Sca
 kaneEq bodies gspeed
