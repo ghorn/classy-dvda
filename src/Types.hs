@@ -16,7 +16,7 @@ module Types ( Sca(..)
              , isVal
              , equivBases
              , foldSca
-             , vecFromPoint
+             , vecFromN0
              ) where
 
 import Data.Hashable
@@ -263,12 +263,12 @@ instance Show Frame where
   show (RotatedFrame _ _ n) = n
 
 instance Show Point where
-  show = show . vecFromPoint
+  show = show . vecFromN0
 
 -------------------- utils ---------------
-vecFromPoint :: Point -> Vec
-vecFromPoint N0 = 0
-vecFromPoint (RelativePoint p0 v) = v + vecFromPoint p0
+vecFromN0 :: Point -> Vec
+vecFromN0 N0 = 0
+vecFromN0 (RelativePoint p0 v) = v + vecFromN0 p0
 
 foldSca :: (Sca -> b -> b) -> b -> Sca -> b
 foldSca f acc s@(SExpr _ _) = f s acc

@@ -103,7 +103,7 @@ generalizedForce gspeed (RigidBody _ _ pos frame forces' (Torque torque)) = tran
     rotational    = partialV w gspeed `dot` (torque + (sum $ map (\(p,f) -> (subtractPoints p pos) `cross` f) forces))
       where
         subtractPoints :: Point -> Point -> Vec
-        subtractPoints vx vy = (vecFromPoint vx) - (vecFromPoint vy)
+        subtractPoints vx vy = (vecFromN0 vx) - (vecFromN0 vy)
 
 kaneEq :: [Body] -> Sca -> Equation Sca
 kaneEq bodies gspeed
