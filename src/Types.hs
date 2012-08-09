@@ -265,6 +265,9 @@ instance Show Frame where
 instance Show Point where
   show = show . vecFromN0
 
+instance Eq Point where
+  x == y = vecFromN0 x == vecFromN0 y
+
 -------------------- utils ---------------
 vecFromN0 :: Point -> Vec
 vecFromN0 N0 = 0
