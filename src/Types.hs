@@ -186,7 +186,9 @@ instance Fractional Sca where
 
 instance Num Vec where
   (+) (Vec x) (Vec y) = removeZeros $ Vec (HM.unionWith (+) x y)
-  (-) (Vec x) (Vec y) = removeZeros $ Vec (HM.unionWith (-) x y)
+  (-) (Vec x) (Vec y) = removeZeros $ Vec (HM.unionWith f x (HM.map negate y))
+    where
+      f x' y' = x' - (negate y')
   negate (Vec x) = removeZeros $ Vec (HM.map negate x)
 
   (*) = error "(*) not instanced for Vec"
