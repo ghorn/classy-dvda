@@ -9,6 +9,10 @@ module System ( Body(..)
               , kaneEqs
               ) where
 
+--import Data.HashSet ( HashSet )
+--import qualified Data.HashSet as HS
+--import qualified Data.HashMap.Lazy as HM
+
 import VectorMath
 import Types
 
@@ -90,5 +94,48 @@ kaneEq bodies gspeed
                 EQ
                 (sum $ map (generalizedEffectiveForce gspeed) bodies)
 
+--class GetSpeeds a where
+--  getSpeeds :: a -> HashSet Sca
+--
+--instance GetSpeeds Body where
+--  getSpeeds (Particle mass pos (Force force)) = HS.unions [getSpeeds mass, getSpeeds pos, getSpeeds force]
+--  getSpeeds (RigidBody mass inertia pos frame (Force force) (Torque torque)) =
+--    HS.unions [ getSpeeds mass
+--              , getSpeeds inertia
+--              , getSpeeds pos
+--              , getSpeeds frame
+--              , getSpeeds force
+--              , getSpeeds torque
+--              ]
+--
+--instance GetSpeeds Vec where
+--  getSpeeds (Vec hm) = HS.unions $ map getSpeeds (HM.elems hm)
+--
+--instance GetSpeeds Sca where
+--  getSpeeds = foldSca f HS.empty
+--    where
+--      f s acc = if isSpeed s then HS.insert s acc else acc
+--
+--instance GetSpeeds Frame where
+--  getSpeeds NewtonianFrame = HS.empty
+--  getSpeeds (RotatedFrame frame rot _) = HS.union (getSpeeds frame) (getSpeeds rot)
+--
+--instance GetSpeeds Rotation where
+--  getSpeeds (RotSpeed (wx,wy,wz)) = HS.unions $ map getSpeeds [wx,wy,wz]
+--  getSpeeds (RotCoord v) = getSpeeds v
+--
+--instance GetSpeeds Dyadic where
+--  getSpeeds (Dyadic ((xx,xy,xz), (yx,yy,yz), (zx,zy,zz))) = HS.unions $ map getSpeeds [xx,xy,xz,yx,yy,yz,zx,zy,zz]
+--
+--instance GetSpeeds Dyad where
+--  getSpeeds (Dyad s _ _) = getSpeeds s
+--
+---- | run kanes equations, automatically discovering all generalized speeds
+--kaneEqs' :: [Body] -> [Equation Sca]
+--kaneEqs' bodies = kaneEqs' bodies speeds
+--  where
+--    speeds = HS.toList $ HS.unions $ map getSpeeds bodies
+
+-- | run kanes equations for given generalized speeds
 kaneEqs :: [Body] -> [Sca] -> [Equation Sca]
 kaneEqs bodies = map (kaneEq bodies)

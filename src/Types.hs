@@ -15,6 +15,7 @@ module Types ( Sca(..)
              , removeZeros
              , isVal
              , equivBases
+             , foldSca
              , vecFromPoint
              ) where
 
@@ -268,6 +269,15 @@ instance Show Point where
 vecFromPoint :: Point -> Vec
 vecFromPoint N0 = 0
 vecFromPoint (RelativePoint p0 v) = v + vecFromPoint p0
+
+foldSca :: (Sca -> b -> b) -> b -> Sca -> b
+foldSca f acc s@(SExpr _ _) = f s acc
+foldSca f acc (SDot _ x)= foldSca f acc x
+foldSca f acc (SNeg x) = foldSca f acc x
+foldSca f acc (SAdd x y) = foldSca f (foldSca f acc y) x
+foldSca f acc (SSub x y) = foldSca f (foldSca f acc y) x
+foldSca f acc (SMul x y) = foldSca f (foldSca f acc y) x
+foldSca f acc (SDiv x y) = foldSca f (foldSca f acc y) x
 
 isVal :: Double -> Sca -> Bool
 isVal x (SExpr e _) = Expr.isVal x e
