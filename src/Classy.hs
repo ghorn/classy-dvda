@@ -90,13 +90,6 @@ rotX = rotXYZ X
 rotY = rotXYZ Y
 rotZ = rotXYZ Z
 
--- | express a vector as x/y/z components of a given frame
-xyzVec :: (Sca,Sca,Sca) -> Frame -> Vec
-xyzVec (sx,sy,sz) frame =
-  scaleBasis sx (Basis frame X) +
-  scaleBasis sy (Basis frame Y) +
-  scaleBasis sz (Basis frame Z)
-
 ---- | create a basis from a frame and X or Y or Z
 --basis :: Frame -> XYZ -> Basis
 --basis = Basis

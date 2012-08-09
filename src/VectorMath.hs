@@ -14,6 +14,7 @@ module VectorMath ( ddt
                   , isSpeed
                   , angVelWrtN
                   , time
+                  , xyzVec
                   ) where
 
 import Data.Maybe ( catMaybes )
@@ -24,6 +25,13 @@ import Dvda
 import Dvda.Expr ( Expr(..), Sym(..) )
 
 import Types
+
+-- | express a vector as x/y/z components of a given frame
+xyzVec :: (Sca,Sca,Sca) -> Frame -> Vec
+xyzVec (sx,sy,sz) frame =
+  scaleBasis sx (Basis frame X) +
+  scaleBasis sy (Basis frame Y) +
+  scaleBasis sz (Basis frame Z)
 
 ddt :: Sca -> Sca
 ddt = flip partial (SExpr time Nothing)
@@ -49,7 +57,7 @@ angVelWrtN NewtonianFrame = zeroVec
 angVelWrtN (RotatedFrame frame0 (RotCoord q) _) = angVelWrtN frame0 + partialV q (SExpr time Nothing)
 angVelWrtN b@(RotatedFrame frame0 (RotSpeed (wx,wy,wz)) _) = angVelWrtN frame0 + w
   where
-    w = scaleBasis wx (Basis b X) + scaleBasis wy (Basis b Y) + scaleBasis wz (Basis b Z)
+    w = xyzVec (wx,wy,wz) b
 
 isCoord, isSpeed, isTime :: Sca -> Bool
 isCoord (SExpr (ESym (SymDependent _ 0 (Sym t))) (Just 0)) = ESym (Sym t) == time
