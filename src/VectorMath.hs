@@ -3,6 +3,7 @@
 module VectorMath ( ddt
                   , ddtN
                   , ddtNp
+                  , ddtF
                   , partial
                   , partialV
                   , cross
@@ -13,6 +14,7 @@ module VectorMath ( ddt
                   , scaleBasis
                   , isCoord
                   , isSpeed
+                  , angVelWrt
                   , angVelWrtN
                   , time
                   , xyzVec
@@ -21,7 +23,7 @@ module VectorMath ( ddt
 import Data.Maybe ( catMaybes )
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
-
+import Debug.Trace
 import Dvda
 import Dvda.Expr ( Expr(..), Sym(..) )
 
@@ -37,16 +39,21 @@ xyzVec (sx,sy,sz) frame =
 ddt :: Sca -> Sca
 ddt = flip partial (SExpr time Nothing)
 
--- | time derivative in a rotating frame using golden rule of vector differentiation
+
+-- | time derivative in a rotating frame w.r.t the newtonian frame
 ddtN :: Vec -> Vec
-ddtN (Vec hm0) = removeZeros $ (\(x,y) -> sum x + sum y) $ unzip $ map ddtN' (HM.toList hm0)
+ddtN vec = ddtF vec NewtonianFrame 
+
+-- | time derivative in a rotating frame w.r.t a given frame
+ddtF :: Vec -> Frame -> Vec
+ddtF (Vec hm0) baseFrame = removeZeros $ (\(x,y) -> sum x + sum y) $ unzip $ map ddtF' (HM.toList hm0)
   where
-    ddtN' :: (Basis, Sca) -> (Vec,Vec)
-    ddtN' (basis, sca) = (scaleBasis (ddt sca) basis, ddtNBasis basis) -- add these up at the end
+    ddtF' :: (Basis, Sca) -> (Vec,Vec)
+    ddtF' (basis, sca) = (scaleBasis (ddt sca) basis, ddtFBasis basis) -- add these up at the end (improves symbolic simplification)
       where
-        ddtNBasis :: Basis -> Vec
-        ddtNBasis (Basis bf _) = angVelWrtN bf `cross` scaleBasis sca basis
-        ddtNBasis (Cross bf0 bf1) = ddtN v0 `cross` v1 + v0 `cross` ddtN v1
+        ddtFBasis :: Basis -> Vec
+        ddtFBasis (Basis bf _) = (angVelWrt bf baseFrame) `cross` scaleBasis sca basis
+        ddtFBasis (Cross bf0 bf1) = (ddtF v0 baseFrame) `cross` v1 + v0 `cross` (ddtF v1 baseFrame)
           where
             v0 = scaleBasis 1 bf0
             v1 = scaleBasis 1 bf1
@@ -57,13 +64,32 @@ ddtNp N0 = 0
 ddtNp (RelativePoint p0 vec) = ddtN vec + ddtNp p0
 
 --------------------------------------------------------------------
+-- | Given two frames, finds the closest ancestor frame (in terms of dependency)
+latestCommonFrame :: Frame -> Frame -> Frame
+-- | A rather silly implementation
+latestCommonFrame _ _ = NewtonianFrame
+
+
+-- | Angular velocity of a frame w.r.t the Newtonian frame
 angVelWrtN :: Frame -> Vec
-angVelWrtN NewtonianFrame = zeroVec
---angVelWrtN (RotatedFrame frame0 (RotCoordSpeed _ w) _ _) = (angVelWrtN frame0) + w
-angVelWrtN (RotatedFrame frame0 (RotCoord q) _) = angVelWrtN frame0 + partialV q (SExpr time Nothing)
-angVelWrtN b@(RotatedFrame frame0 (RotSpeed (wx,wy,wz)) _) = angVelWrtN frame0 + w
+angVelWrtN frame = angVelWrt frame NewtonianFrame 
+
+--------------------------------------------------------------------
+-- | angVelWrt f g is the angular velocity of frame f with respect to frame g
+angVelWrt :: Frame -> Frame -> Vec
+angVelWrt frameA frameB = (angVelWrtCommon frameA) - (angVelWrtCommon frameB)
   where
-    w = xyzVec (wx,wy,wz) b
+    common = latestCommonFrame frameA frameB
+
+    angVelWrtCommon :: Frame -> Vec
+    angVelWrtCommon fr
+      | fr == common = 0
+    angVelWrtCommon (RotatedFrame frame0 (RotCoord q) _) = angVelWrtCommon frame0 + partialV q (SExpr time Nothing)
+    angVelWrtCommon b@(RotatedFrame frame0 (RotSpeed (wx,wy,wz)) _) = angVelWrtCommon frame0 + w
+      where
+        w = xyzVec (wx,wy,wz) b
+    angVelWrtCommon NewtonianFrame = trace "angVelWrt: THIS SHOULD NEVER HAPPEN" $ negate (angVelWrtN common)
+
 
 isCoord, isSpeed, isTime :: Sca -> Bool
 isCoord (SExpr (ESym (SymDependent _ 0 (Sym t))) (Just 0)) = ESym (Sym t) == time

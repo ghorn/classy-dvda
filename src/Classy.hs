@@ -34,6 +34,7 @@ module Classy ( -- * refernce frames
               , ddt
               , ddtN
               , ddtNp
+              , ddtF
               , partial
               , partialV
                 -- * mechanical system and dynamics
