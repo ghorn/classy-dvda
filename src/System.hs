@@ -66,7 +66,10 @@ generalizedEffectiveForce gspeed (RigidBody mass inertia pos frame _ _) = transl
     accel = ddtN vel
     translational = partialV vel gspeed `dot` scale mass accel
     rotational = partialV w gspeed `dot` effectiveTorque
-    effectiveTorque = inertia `dyadicDot` ddtN w + w `cross` (inertia `dyadicDot` w) + mass `scale` (pos `cross`accel)
+    effectiveTorque = inertia `dyadicDot` ddtN w
+                      + w `cross` (inertia `dyadicDot` w)
+--                      + mass `scale` (pos_bp `cross`accel)
+-- can only take moment of effective force about cm right now
 
 generalizedForce :: Sca -> Body -> Sca
 generalizedForce gspeed (Particle _ pos (Force force)) = partialV vel gspeed `dot` force
