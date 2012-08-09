@@ -29,6 +29,7 @@ module Classy ( -- * refernce frames
               , scale
                 -- * rigid bodies
               , simpleDyadic
+              , getCMPos
                 -- * differentiation
               , ddt
               , ddtN

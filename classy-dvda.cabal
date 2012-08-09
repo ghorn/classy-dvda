@@ -17,8 +17,9 @@ library
   exposed-modules:     Classy,
                        VectorMath,
                        System,
-                       Types
-  -- other-modules:       
+                       Types,
+                       Examples
+  other-modules:       Kitesys
   build-depends:       base >= 4   && < 5,
                        dvda >= 0.3 && < 0.4,
                        -- unordered-containers and hashable will use the same version that dvda uses

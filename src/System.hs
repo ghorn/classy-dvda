@@ -3,6 +3,7 @@
 module System ( Body(..)
               , Torque(..)
               , Force(..)
+              , getCMPos
               , generalizedForce
               , generalizedEffectiveForce
               , kaneEq
@@ -41,6 +42,11 @@ data Body = Particle
 --            Frame -- ^ reference frame attached to the rigid body (for getting angular velocity)
 --            Force -- ^ forces on the body
 --            Torque -- ^ torque on the body
+
+-- | get center of mass position
+getCMPos :: Body -> Point
+getCMPos (Particle _ p _) = p
+getCMPos (RigidBody _ _ p _ _ _) = p
 
 instance Show Body where
   show (Particle mass pos (Force f)) = unlines [ "Particle"
