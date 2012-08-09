@@ -3,6 +3,7 @@
 module Types ( Sca(..)
              , Vec(..)
              , XYZ(..)
+             , Point(..)
              , Basis(..)
              , Frame(..)
              , Rotation(..)
@@ -14,6 +15,7 @@ module Types ( Sca(..)
              , removeZeros
              , isVal
              , equivBases
+             , vecFromPoint
              ) where
 
 import Data.Hashable
@@ -36,6 +38,9 @@ data Sca = SExpr (Expr Double) (Maybe Int)
 
 data Basis = Basis Frame XYZ
            | Cross Basis Basis deriving Eq
+
+data Point = N0
+           | RelativePoint Point Vec
 
 data Vec = Vec (HashMap Basis Sca) deriving Eq
 
@@ -197,6 +202,7 @@ instance Num Vec where
   fromInteger 0 = zeroVec
   fromInteger _ = error "Num Vec's fromInteger only instanced for 0"
 
+
 -------------------------- show instances ----------------------------------
 showInfixBinary :: (Show a, Show b) => Int -> Int -> String -> a -> b -> ShowS
 showInfixBinary d prec op u v = showParen (d > prec) $
@@ -255,8 +261,14 @@ instance Show Frame where
   show NewtonianFrame = "N"
   show (RotatedFrame _ _ n) = n
 
+instance Show Point where
+  show = show . vecFromPoint
 
 -------------------- utils ---------------
+vecFromPoint :: Point -> Vec
+vecFromPoint N0 = 0
+vecFromPoint (RelativePoint p0 v) = v + vecFromPoint p0
+
 isVal :: Double -> Sca -> Bool
 isVal x (SExpr e _) = Expr.isVal x e
 isVal x (SNeg e) = isVal (-x) e

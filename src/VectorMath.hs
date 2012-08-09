@@ -2,6 +2,7 @@
 
 module VectorMath ( ddt
                   , ddtN
+                  , ddtNp
                   , partial
                   , partialV
                   , cross
@@ -49,6 +50,11 @@ ddtN (Vec hm0) = removeZeros $ (\(x,y) -> sum x + sum y) $ unzip $ map ddtN' (HM
           where
             v0 = scaleBasis 1 bf0
             v1 = scaleBasis 1 bf1
+
+-- | time derivative in a rotating frame using golden rule of vector differentiation
+ddtNp :: Point -> Vec
+ddtNp N0 = 0
+ddtNp (RelativePoint p0 vec) = ddtN vec + ddtNp p0
 
 --------------------------------------------------------------------
 angVelWrtN :: Frame -> Vec

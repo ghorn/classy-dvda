@@ -28,7 +28,7 @@ wz = speed "wz"
 
 m = param "m"
 kiteFrame = frameWithAngVel n (wx,wy,wz) "K"
-r'n0'k = xVec rArm carouselFrame + xVec rLine lineFrame
+r'n0'k = RelativePoint N0 $ xVec rArm carouselFrame + xVec rLine lineFrame
 
 fx = param "Fx"
 fy = param "Fy"

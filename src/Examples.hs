@@ -25,7 +25,7 @@ simple = do
 --      torque = Torque $ xyzVec (mx,my,mz) n
 
       b = frameWithAngVel n (wx,wy,wz) "B"
-      body = RigidBody 1 (simpleDyadic jx jy jz b) 0 b (Force 0) torque
+      body = RigidBody 1 (simpleDyadic jx jy jz b) N0 b (Force 0) torque
 
   print body
   putStrLn "kane's eqs: "
@@ -43,9 +43,9 @@ blah = do
       len = param "r"
       --len = 1.3
 
-      r_n02p = xVec len b
+      r_n02p = RelativePoint N0 (xVec len b)
 
-      v_pn = ddtN r_n02p
+      v_pn = ddtNp r_n02p
       a_pn = ddtN v_pn
 
       nx = xVec 1 n
@@ -62,7 +62,6 @@ blah = do
   putStrLn $ "v_pn:              " ++ show v_pn
   putStrLn $ "partialV v_pn q':  " ++ show (partialV v_pn q')
   putStrLn $ "a_pn:              " ++ show a_pn
-  putStrLn $ "dot r_n02p v_pn:   " ++ show (dot r_n02p v_pn)
   putStrLn $ "dot a_pn nx:       " ++ show (dot a_pn nx)
 
   putStrLn $ "Particle: " ++ show someParticle

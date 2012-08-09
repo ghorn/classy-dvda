@@ -17,12 +17,12 @@ data Torque = Torque Vec deriving Show
 
 data Body = Particle
             Sca --  mass
-            Vec --  position from N0 to CM
+            Point --  position from N0 to CM
             Force --  forces on the body
           | RigidBody
             Sca --  mass
             Dyadic --  inertia dyadic
-            Vec --  position from N0 to CM
+            Point --  position from N0 to CM
             Frame --  reference frame attached to the rigid body (for getting angular velocity)
             Force --  forces on the body
             Torque --  torque on the body
@@ -57,12 +57,12 @@ instance Show Body where
 generalizedEffectiveForce :: Sca -> Body -> Sca
 generalizedEffectiveForce gspeed (Particle mass pos _) = partialV vel gspeed `dot` scale mass accel
   where
-    vel = ddtN pos
+    vel = ddtNp pos
     accel = ddtN vel
 generalizedEffectiveForce gspeed (RigidBody mass inertia pos frame _ _) = translational + rotational
   where
     w = angVelWrtN frame
-    vel = ddtN pos
+    vel = ddtNp pos
     accel = ddtN vel
     translational = partialV vel gspeed `dot` scale mass accel
     rotational = partialV w gspeed `dot` effectiveTorque
@@ -74,11 +74,11 @@ generalizedEffectiveForce gspeed (RigidBody mass inertia pos frame _ _) = transl
 generalizedForce :: Sca -> Body -> Sca
 generalizedForce gspeed (Particle _ pos (Force force)) = partialV vel gspeed `dot` force
   where
-    vel = ddtN pos
+    vel = ddtNp pos
 generalizedForce gspeed (RigidBody _ _ pos frame (Force force) (Torque torque)) = translational + rotational
   where
     w = angVelWrtN frame
-    vel = ddtN pos
+    vel = ddtNp pos
     translational = partialV vel gspeed `dot` force
     rotational    = partialV w gspeed `dot` torque
 

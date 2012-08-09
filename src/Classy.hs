@@ -12,6 +12,7 @@ module Classy ( -- * refernce frames
               , Frame
                 -- * some primitives
               , XYZ(..)
+              , Point(..)
               , coord
               , speed
               , param
@@ -31,6 +32,7 @@ module Classy ( -- * refernce frames
                 -- * differentiation
               , ddt
               , ddtN
+              , ddtNp
               , partial
               , partialV
                 -- * mechanical system and dynamics
