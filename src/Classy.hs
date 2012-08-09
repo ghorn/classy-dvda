@@ -6,6 +6,10 @@ module Classy ( -- * refernce frames
               , rotXYZ
               , rotX, rotY, rotZ
               , frameWithAngVel
+                -- * needed to write type signatures
+              , Sca
+              , Vec
+              , Frame
                 -- * some primitives
               , XYZ(..)
               , coord
