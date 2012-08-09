@@ -19,7 +19,6 @@ module VectorMath ( ddt
                   , time
                   , xyzVec
                   , parentFrame
-                  , lastCommonFrame
                   ) where
 
 import Data.Maybe ( catMaybes )
@@ -90,9 +89,9 @@ lastCommonFrame frameA frameB = lastCommonList (reverse $ parentFrames frameA) (
 lastCommonList :: Eq a => [a] -> [a] -> a -> a 
 lastCommonList [] _ n = n
 lastCommonList _ [] n = n
-lastCommonList (f1:t1) (f2:t2) last
+lastCommonList (f1:t1) (f2:t2) last'
   | f1 == f2  = lastCommonList t1 t2 f1
-  | otherwise = last
+  | otherwise = last'
 
 -- | Angular velocity of a frame w.r.t the Newtonian frame
 angVelWrtN :: Frame -> Vec
