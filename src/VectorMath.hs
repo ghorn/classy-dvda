@@ -18,6 +18,8 @@ module VectorMath ( ddt
                   , angVelWrtN
                   , time
                   , xyzVec
+                  , parentFrame
+                  , lastCommonFrame
                   ) where
 
 import Data.Maybe ( catMaybes )
@@ -64,11 +66,33 @@ ddtNp N0 = 0
 ddtNp (RelativePoint p0 vec) = ddtN vec + ddtNp p0
 
 --------------------------------------------------------------------
--- | Given two frames, finds the closest ancestor frame (in terms of dependency)
-latestCommonFrame :: Frame -> Frame -> Frame
--- | A rather silly implementation
-latestCommonFrame _ _ = NewtonianFrame
 
+-- | Return the direct dependency of a frame
+parentFrame :: Frame -> Frame
+parentFrame NewtonianFrame = NewtonianFrame
+parentFrame (RotatedFrame frame0 _ _) = frame0
+
+-- | Return the lineage of frames, the last entry always being the newtonian frame
+parentFrames :: Frame -> [Frame]
+parentFrames NewtonianFrame = [NewtonianFrame]
+parentFrames frame = frame:(parentFrames $ parentFrame frame)
+
+-- | Given two frames, finds the closest ancestor frame (in terms of dependency)
+-- If all else fails, the newtonian reference frame is always a valid answer
+lastCommonFrame :: Frame -> Frame -> Frame
+lastCommonFrame frameA frameB = lastCommonList (reverse $ parentFrames frameA) (reverse $ parentFrames frameB)  NewtonianFrame
+
+-- | Given two lists, traverses both lists as long as their entries are equal and returs the last equal entry
+-- Example:   lastCommonList [0,4,5] [0] 42  =>  0
+-- Example:   lastCommonList [0,4,5] [4] 42  =>  42  (nothing was common, outputing default )
+-- Example:   lastCommonList [0,4,5] [0,4,12] 42  =>  4 
+-- Example:   lastCommonList [0,4,5] [0,4,5] 42  =>  5  
+lastCommonList :: Eq a => [a] -> [a] -> a -> a 
+lastCommonList [] _ n = n
+lastCommonList _ [] n = n
+lastCommonList (f1:t1) (f2:t2) last
+  | f1 == f2  = lastCommonList t1 t2 f1
+  | otherwise = last
 
 -- | Angular velocity of a frame w.r.t the Newtonian frame
 angVelWrtN :: Frame -> Vec
@@ -79,7 +103,7 @@ angVelWrtN frame = angVelWrt frame NewtonianFrame
 angVelWrt :: Frame -> Frame -> Vec
 angVelWrt frameA frameB = (angVelWrtCommon frameA) - (angVelWrtCommon frameB)
   where
-    common = latestCommonFrame frameA frameB
+    common = lastCommonFrame frameA frameB
 
     angVelWrtCommon :: Frame -> Vec
     angVelWrtCommon fr
