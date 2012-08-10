@@ -49,6 +49,7 @@ module Classy ( -- * refernce frames
 
 import Dvda ( symDependent, sym )
 
+import Classy.Differentiation
 import Classy.System
 import Classy.Types
 import Classy.VectorMath

@@ -14,11 +14,13 @@ cabal-version:       >=1.8
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Classy,
-                       Classy.VectorMath,
-                       Classy.System,
-                       Classy.Types,
+  exposed-modules:     Classy
+                       Classy.Differentiation
                        Classy.Examples
+                       Classy.System
+                       Classy.Types
+                       Classy.Utils
+                       Classy.VectorMath
   other-modules:       Kitesys
   build-depends:       base >= 4   && < 5,
                        dvda >= 0.3 && < 0.4,

@@ -18,6 +18,8 @@ module Classy.Types ( Sca(..)
                     , foldSca
                     , vecFromN0
                     , vecsFromN0
+                    , time
+                    , isCoord, isSpeed, isTime
                     ) where
 
 import Data.Hashable
@@ -28,7 +30,7 @@ import qualified Data.HashSet as HS
 import Data.List ( intercalate )
 
 import qualified Dvda.Expr as Expr
-import Dvda.Expr ( Expr(..) )
+import Dvda.Expr ( Expr(..), Sym(..), sym )
 
 data Sca = SExpr (Expr Double) (Maybe Int)
          | SDot (Basis,Basis) Sca
@@ -298,3 +300,17 @@ removeZeros (Vec hm) = Vec $ HM.filter (not . isVal 0) hm
 --removeZeros (Vec hm) = trace ("\n-------------\nbefore: "++show hm ++ "\nafter:  "++show ret) $ Vec ret
 --  where
 --    ret = HM.filter (not . (isVal 0)) hm
+
+isCoord, isSpeed, isTime :: Sca -> Bool
+isCoord (SExpr (ESym (SymDependent _ 0 (Sym t))) (Just 0)) = ESym (Sym t) == time
+isCoord _ = False
+
+isSpeed (SExpr (ESym (SymDependent _ _ (Sym t))) (Just 1)) = ESym (Sym t) == time
+isSpeed _ = False
+
+isTime (SExpr t Nothing) = t == time
+isTime _ = False
+
+-- | the independent variable time used in taking time derivatives
+time :: Expr Double
+time = sym "t"

@@ -14,6 +14,7 @@ module Classy.System ( Body(..)
 --import qualified Data.HashSet as HS
 --import qualified Data.HashMap.Lazy as HM
 
+import Classy.Differentiation
 import Classy.VectorMath
 import Classy.Types
 
