@@ -22,6 +22,7 @@ module Classy.Types ( Sca(..)
                     , isCoord, isSpeed, isTime
                     ) where
 
+import Control.Applicative ( (<$>) )
 import Data.Hashable
 import Data.HashMap.Lazy ( HashMap )
 import qualified Data.HashMap.Lazy as HM hiding ( fromList )
@@ -30,7 +31,7 @@ import qualified Data.HashSet as HS
 import Data.List ( intercalate )
 
 import qualified Dvda.Expr as Expr
-import Dvda.Expr ( Expr(..), Nums(..), Sym(..), sym )
+import Dvda.Expr ( Expr(..), Sym(..), sym )
 
 data Sca = SExpr (Expr Double) (Maybe Int)
          | SDot (Basis,Basis) Sca
@@ -159,7 +160,7 @@ instance Hashable Rotation where
 -- otherwise return Nothing
 fromNeg :: Sca -> Maybe Sca
 fromNeg (SNeg x) = Just x
-fromNeg (SExpr (ENum (Negate x)) _) = Just $ SExpr x Nothing
+fromNeg (SExpr e _) = (flip SExpr Nothing) <$> (Expr.fromNeg e)
 fromNeg (SDot bb x) = case fromNeg x of Just x' -> Just (SDot bb x')
                                         Nothing -> Nothing
 fromNeg _ = Nothing
@@ -201,6 +202,7 @@ instance Num Sca where
   abs = error "abs not defined for Num Sca"
   signum = error "signum not defined for Num Sca"
   fromInteger = (\x -> x Nothing) . SExpr . fromInteger
+  negate (SSub x y) = y - x
   negate x = case fromNeg x of Nothing -> SNeg x
                                Just x' -> x'
 
