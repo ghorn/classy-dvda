@@ -4,17 +4,17 @@ module Kitesys where
 
 import Classy
 
-n = newtonianFrame
+n = newtonianBases
 
 rArm = param "R"
 delta = coord "d"
 
-carouselFrame = rotZ n delta "C"
+carouselBases = rotZ n delta "C"
 
 lineWy = speed "lwz"
 lineWz = speed "lwy"
 
-lineFrame = frameWithAngVel carouselFrame (0,lineWy,lineWz) "L"
+lineBases = frameWithAngVel carouselBases (0,lineWy,lineWz) "L"
 
 rLine = param "r"
 
@@ -27,8 +27,8 @@ wy = speed "wy"
 wz = speed "wz"
 
 m = param "m"
-kiteFrame = frameWithAngVel n (wx,wy,wz) "K"
-r'n0'k = RelativePoint N0 $ xVec rArm carouselFrame + xVec rLine lineFrame
+kiteBases = frameWithAngVel n (wx,wy,wz) "K"
+r'n0'k = RelativePoint N0 $ xVec rArm carouselBases + xVec rLine lineBases
 
 fx = param "Fx"
 fy = param "Fy"
@@ -36,10 +36,10 @@ fz = param "Fz"
 mx = param "Tx"
 my = param "Ty"
 mz = param "Tz"
-force =  Forces  [(r'n0'k, xyzVec (fx,fy,fz) kiteFrame)]
-torque = Torque $ xyzVec (mx,my,mz) kiteFrame
+force =  Forces  [(r'n0'k, xyzVec (fx,fy,fz) kiteBases)]
+torque = Torque $ xyzVec (mx,my,mz) kiteBases
 
-kite = RigidBody m (simpleDyadic jx jy jz kiteFrame) r'n0'k kiteFrame force torque
+kite = RigidBody m (simpleDyadic jx jy jz kiteBases) r'n0'k kiteBases force torque
 
 run :: IO ()
 run = do

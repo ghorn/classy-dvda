@@ -5,7 +5,7 @@ module Types ( Sca(..)
              , XYZ(..)
              , Point(..)
              , Basis(..)
-             , Frame(..)
+             , Bases(..)
              , Rotation(..)
              , Dyad(..)
              , Dyadic(..)
@@ -22,7 +22,7 @@ module Types ( Sca(..)
 
 import Data.Hashable
 import Data.HashMap.Lazy ( HashMap )
-import qualified Data.HashMap.Lazy as HM hiding ( fromList ) -- only use fromListWith
+import qualified Data.HashMap.Lazy as HM hiding ( fromList )
 import Data.HashSet( HashSet )
 import qualified Data.HashSet as HS
 import Data.List ( intercalate )
@@ -38,7 +38,7 @@ data Sca = SExpr (Expr Double) (Maybe Int)
          | SMul Sca Sca
          | SDiv Sca Sca
 
-data Basis = Basis Frame XYZ
+data Basis = Basis Bases XYZ
            | Cross Basis Basis deriving Eq
 
 data Point = N0
@@ -48,8 +48,8 @@ data Vec = Vec (HashMap Basis Sca) deriving Eq
 
 data XYZ = X | Y | Z deriving Eq
 
-data Frame = NewtonianFrame
-           | RotatedFrame Frame Rotation String deriving Eq
+data Bases = NewtonianBases
+           | RotatedBases Bases Rotation String deriving Eq
 
 data Rotation = RotSpeed (Sca,Sca,Sca)
               | RotCoord Vec deriving (Show, Eq)
@@ -99,10 +99,10 @@ type EquivBases = (HashSet (Basis, Basis))
 class HasEquivBases a where
   equivBases :: a -> EquivBases
 
-instance HasEquivBases Frame where
-  equivBases NewtonianFrame = HS.empty
-  equivBases (RotatedFrame _ (RotSpeed _) _) = HS.empty
-  equivBases f@(RotatedFrame f0 (RotCoord rotVec) _) = case rotBases of
+instance HasEquivBases Bases where
+  equivBases NewtonianBases = HS.empty
+  equivBases (RotatedBases _ (RotSpeed _) _) = HS.empty
+  equivBases f@(RotatedBases f0 (RotCoord rotVec) _) = case rotBases of
     [Basis frame xyz] -> if frame == f0
                          then HS.insert (Basis f0 xyz, Basis f xyz) (equivBases f0)
                          else HS.empty
@@ -142,9 +142,9 @@ instance Hashable XYZ where
   hash Y = hash "Y"
   hash Z = hash "Z"
 
-instance Hashable Frame where
-  hash NewtonianFrame = hash "NewtonianFrame"
-  hash (RotatedFrame frame rot name) = hash "RotatedFrame" `combine` hash frame `combine` hash rot `combine` hash name
+instance Hashable Bases where
+  hash NewtonianBases = hash "NewtonianBases"
+  hash (RotatedBases frame rot name) = hash "RotatedBases" `combine` hash frame `combine` hash rot `combine` hash name
 
 instance Hashable Rotation where
   hash (RotCoord q)        = hash "RotCoord" `combine` hash q
@@ -259,9 +259,9 @@ instance Show XYZ where
   show Y = "y>"
   show Z = "z>"
 
-instance Show Frame where
-  show NewtonianFrame = "N"
-  show (RotatedFrame _ _ n) = n
+instance Show Bases where
+  show NewtonianBases = "N"
+  show (RotatedBases _ _ n) = n
 
 instance Show Point where
   show = show . vecFromN0

@@ -36,7 +36,7 @@ data Body = Particle
             Sca --  mass
             Dyadic --  inertia dyadic
             Point --  position from N0 to CM
-            Frame --  reference frame attached to the rigid body (for getting angular velocity)
+            Bases --  reference bases attached to the rigid body (for getting angular velocity)
             Forces --  forces on the body
             Torque --  torque on the body
 --data Body = Particle
@@ -47,7 +47,7 @@ data Body = Particle
 --            Sca -- ^ mass
 --            Dyadic -- ^ inertia dyadic
 --            Vec -- ^ position from N0 to CM
---            Frame -- ^ reference frame attached to the rigid body (for getting angular velocity)
+--            Bases -- ^ reference frame attached to the rigid body (for getting angular velocity)
 --            Forces -- ^ forces on the body
 --            Torque -- ^ torque on the body
 
@@ -132,9 +132,9 @@ kaneEq bodies gspeed
 --    where
 --      f s acc = if isSpeed s then HS.insert s acc else acc
 --
---instance GetSpeeds Frame where
---  getSpeeds NewtonianFrame = HS.empty
---  getSpeeds (RotatedFrame frame rot _) = HS.union (getSpeeds frame) (getSpeeds rot)
+--instance GetSpeeds Bases where
+--  getSpeeds NewtonianBases = HS.empty
+--  getSpeeds (RotatedBases frame rot _) = HS.union (getSpeeds frame) (getSpeeds rot)
 --
 --instance GetSpeeds Rotation where
 --  getSpeeds (RotSpeed (wx,wy,wz)) = HS.unions $ map getSpeeds [wx,wy,wz]

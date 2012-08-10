@@ -8,7 +8,7 @@ import Classy
 
 simple :: IO ()
 simple = do
-  let n = newtonianFrame
+  let n = newtonianBases
 
       jx = param "Jx"
       jy = param "Jy"
@@ -37,7 +37,7 @@ blah = do
   let q = coord "q"
       q' = ddt q
 
-      n = newtonianFrame
+      n = newtonianBases
       b = rotZ n q "B"
 
       len = param "r"

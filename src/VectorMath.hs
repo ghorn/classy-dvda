@@ -19,7 +19,7 @@ module VectorMath ( ddt
                   , angVelWrtN
                   , time
                   , xyzVec
-                  , parentFrame
+                  , parentBases
                   , subtractPoints
                   ) where
 
@@ -33,7 +33,7 @@ import Dvda.Expr ( Expr(..), Sym(..) )
 import Types
 
 -- | express a vector as x/y/z components of a given frame
-xyzVec :: (Sca,Sca,Sca) -> Frame -> Vec
+xyzVec :: (Sca,Sca,Sca) -> Bases -> Vec
 xyzVec (sx,sy,sz) frame =
   scaleBasis sx (Basis frame X) +
   scaleBasis sy (Basis frame Y) +
@@ -45,10 +45,10 @@ ddt = flip partial (SExpr time Nothing)
 
 -- | time derivative in a rotating frame w.r.t the newtonian frame
 ddtN :: Vec -> Vec
-ddtN vec = ddtF vec NewtonianFrame 
+ddtN vec = ddtF vec NewtonianBases 
 
 -- | time derivative in a rotating frame w.r.t a given frame
-ddtF :: Vec -> Frame -> Vec
+ddtF :: Vec -> Bases -> Vec
 ddtF (Vec hm0) baseFrame = removeZeros $ (\(x,y) -> sum x + sum y) $ unzip $ map ddtF' (HM.toList hm0)
   where
     ddtF' :: (Basis, Sca) -> (Vec,Vec)
@@ -69,19 +69,19 @@ ddtNp (RelativePoint p0 vec) = ddtN vec + ddtNp p0
 --------------------------------------------------------------------
 
 -- | Return the direct dependency of a frame
-parentFrame :: Frame -> Frame
-parentFrame NewtonianFrame = NewtonianFrame
-parentFrame (RotatedFrame frame0 _ _) = frame0
+parentBases :: Bases -> Bases
+parentBases NewtonianBases = NewtonianBases
+parentBases (RotatedBases frame0 _ _) = frame0
 
 -- | Return the lineage of frames, the last entry always being the newtonian frame
-parentFrames :: Frame -> [Frame]
-parentFrames NewtonianFrame = [NewtonianFrame]
-parentFrames frame = frame:(parentFrames $ parentFrame frame)
+parentBasesChain :: Bases -> [Bases]
+parentBasesChain NewtonianBases = [NewtonianBases]
+parentBasesChain frame = frame:(parentBasesChain $ parentBases frame)
 
 -- | Given two frames, finds the closest ancestor frame (in terms of dependency)
 -- If all else fails, the newtonian reference frame is always a valid answer
-lastCommonFrame :: Frame -> Frame -> Frame
-lastCommonFrame frameA frameB = lastCommonList (reverse $ parentFrames frameA) (reverse $ parentFrames frameB)  NewtonianFrame
+lastCommonBases :: Bases -> Bases -> Bases
+lastCommonBases frameA frameB = lastCommonList (reverse $ parentBasesChain frameA) (reverse $ parentBasesChain frameB)  NewtonianBases
 
 -- | Given two lists, traverses both lists as long as their entries are equal and returs the last equal entry
 -- Example:   lastCommonList [0,4,5] [0] 42  =>  0
@@ -96,24 +96,24 @@ lastCommonList (f1:t1) (f2:t2) last'
   | otherwise = last'
 
 -- | Angular velocity of a frame w.r.t the Newtonian frame
-angVelWrtN :: Frame -> Vec
-angVelWrtN frame = angVelWrt frame NewtonianFrame 
+angVelWrtN :: Bases -> Vec
+angVelWrtN frame = angVelWrt frame NewtonianBases 
 
 --------------------------------------------------------------------
 -- | angVelWrt f g is the angular velocity of frame f with respect to frame g
-angVelWrt :: Frame -> Frame -> Vec
+angVelWrt :: Bases -> Bases -> Vec
 angVelWrt frameA frameB = (angVelWrtCommon frameA) - (angVelWrtCommon frameB)
   where
-    common = lastCommonFrame frameA frameB
+    common = lastCommonBases frameA frameB
 
-    angVelWrtCommon :: Frame -> Vec
+    angVelWrtCommon :: Bases -> Vec
     angVelWrtCommon fr
       | fr == common = 0
-    angVelWrtCommon (RotatedFrame frame0 (RotCoord q) _) = angVelWrtCommon frame0 + partialV q (SExpr time Nothing)
-    angVelWrtCommon b@(RotatedFrame frame0 (RotSpeed (wx,wy,wz)) _) = angVelWrtCommon frame0 + w
+    angVelWrtCommon (RotatedBases frame0 (RotCoord q) _) = angVelWrtCommon frame0 + partialV q (SExpr time Nothing)
+    angVelWrtCommon b@(RotatedBases frame0 (RotSpeed (wx,wy,wz)) _) = angVelWrtCommon frame0 + w
       where
         w = xyzVec (wx,wy,wz) b
-    angVelWrtCommon NewtonianFrame = trace "angVelWrt: THIS SHOULD NEVER HAPPEN" $ negate (angVelWrtN common)
+    angVelWrtCommon NewtonianBases = trace "angVelWrt: THIS SHOULD NEVER HAPPEN" $ negate (angVelWrtN common)
 
 
 isCoord, isSpeed, isTime :: Sca -> Bool
@@ -193,7 +193,7 @@ crossBases (b0@(Basis f0 xyz0), s0) (b1@(Basis f1 xyz1), s1)
     b1Equivs :: [Basis]
     b1Equivs = allReplacements b1 f0
 
-    allReplacements :: Basis -> Frame -> [Basis]
+    allReplacements :: Basis -> Bases -> [Basis]
     allReplacements b f = map snd $ filter g ebs
       where
         g (b',Basis f' _) = b == b' && f == f'
@@ -236,7 +236,7 @@ dotBases (b0@(Basis f0 xyz0), s0) (b1@(Basis f1 xyz1), s1)
     b1Equivs :: [Basis]
     b1Equivs = allReplacements b1 f0
 
-    allReplacements :: Basis -> Frame -> [Basis]
+    allReplacements :: Basis -> Bases -> [Basis]
     allReplacements b f = map snd $ filter g ebs
       where
         g (b',Basis f' _) = b == b' && f == f'
