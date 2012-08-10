@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wall #-}
+{-# Language MultiParamTypeClasses #-}
 
 module VectorMath ( ddt
                   , ddtN
@@ -253,14 +254,27 @@ dot :: Vec -> Vec -> Sca
 dot (Vec hm0) (Vec hm1) =
   sum [dotBases (b0,s0) (b1,s1) | (b0,s0) <- HM.toList hm0, (b1,s1) <- HM.toList hm1]
 
--- | dyad dot vector - x*b1>b2> `dyadDot` y*b3> = (x*y*(b2> . b3>)) * b1>
-dyadDot :: Dyad -> Vec -> Vec
-dyadDot (Dyad x b1 b2) vec= scaleBasis scalar b1
-  where
-    scalar = scaleBasis x b2 `dot` vec
+-- | dyad dot vector: x*b1>b2> `dyadDot` y*b3>     = (x*y*(b2> . b3>)) * b1>
+--   vector dot dyad: x*b1>    `dyadDot` y*b2>b3>  = (x*y*(b1> . b2>)) * b3>
+class DyadDot a b where
+  dyadDot :: a -> b -> Vec
+instance DyadDot Dyad Vec where
+  dyadDot (Dyad x b1 b2) vec = scaleBasis scalar b1
+    where
+      scalar = scaleBasis x b2 `dot` vec
+instance DyadDot Vec Dyad where
+  dyadDot vec (Dyad x b1 b2) = scaleBasis scalar b2
+    where
+      scalar = vec `dot` scaleBasis x b1
 
-dyadicDot :: Dyadic -> Vec -> Vec
-dyadicDot (Dyadic ((xx,xy,xz), (yx,yy,yz), (zx,zy,zz))) vec = sum $ map (`dyadDot` vec) [xx,xy,xz,yx,yy,yz,zx,zy,zz]
+class DyadicDot a b where
+  dyadicDot :: a -> b -> Vec
+instance DyadicDot Dyadic Vec where
+  dyadicDot (Dyadic ((xx,xy,xz), (yx,yy,yz), (zx,zy,zz))) vec =
+    sum $ map (`dyadDot` vec) [xx,xy,xz,yx,yy,yz,zx,zy,zz]
+instance DyadicDot Vec Dyadic where
+  dyadicDot vec (Dyadic ((xx,xy,xz), (yx,yy,yz), (zx,zy,zz))) =
+    sum $ map (vec `dyadDot`) [xx,xy,xz,yx,yy,yz,zx,zy,zz]
 
 -- | scale a vector by a scalar, returning a vector
 scale :: Sca -> Vec -> Vec
