@@ -30,7 +30,7 @@ import qualified Data.HashSet as HS
 import Data.List ( intercalate )
 
 import qualified Dvda.Expr as Expr
-import Dvda.Expr ( Expr(..), Sym(..), sym )
+import Dvda.Expr ( Expr(..), Nums(..), Sym(..), sym )
 
 data Sca = SExpr (Expr Double) (Maybe Int)
          | SDot (Basis,Basis) Sca
@@ -155,41 +155,66 @@ instance Hashable Rotation where
   
 
 ------------------------- Num/Fractional instances ---------------------------------
+-- if the input Sca is the result of unary negation, return the un-negated version
+-- otherwise return Nothing
+fromNeg :: Sca -> Maybe Sca
+fromNeg (SNeg x) = Just x
+fromNeg (SExpr (ENum (Negate x)) _) = Just $ SExpr x Nothing
+fromNeg (SDot bb x) = case fromNeg x of Just x' -> Just (SDot bb x')
+                                        Nothing -> Nothing
+fromNeg _ = Nothing
+
 instance Num Sca where
   (*) x y
     | isVal 0 x || isVal 0 y = 0
     | isVal 1 x = y
     | isVal 1 y = x
-    | otherwise = case (x,y) of (SExpr x' _, SExpr y' _) -> SExpr (x' * y') Nothing
-                                _ -> SMul x y
+  (*) x y = case (fromNeg x, fromNeg y) of
+              (Just x', Just y') -> x' * y'
+              (Nothing, Just y') -> negate (x  * y')
+              (Just x', Nothing) -> negate (x' * y )
+              _ -> case (x,y) of (SExpr x' _, SExpr y' _) -> SExpr (x' * y') Nothing
+                                 _ -> SMul x y
 
   (+) x y
-    | x == -y || -x == y = 0
+    | x == -y = 0
     | isVal 0 x = y
     | isVal 0 y = x
-    | otherwise = case (x,y) of (SExpr x' _, SExpr y' _) -> SExpr (x' + y') Nothing
-                                _ -> SAdd x y
+  (+) x y = case (fromNeg x, fromNeg y) of
+              (Just x', Just y') -> negate (x' + y')
+              (Nothing, Just y') -> x  - y'
+              (Just x', Nothing) -> y  - x'
+              _ -> case (x,y) of (SExpr x' _, SExpr y' _) -> SExpr (x' + y') Nothing
+                                 _ -> SAdd x y
 
   (-) x y
     | x == y = 0
     | isVal 0 x = -y
     | isVal 0 y = x
-    | otherwise = case (x,y) of (SExpr x' _, SExpr y' _) -> SExpr (x' - y') Nothing
-                                _ -> SSub x y
+  (-) x y = case (fromNeg x, fromNeg y) of
+              (Just x', Just y') -> y' - x'
+              (Nothing, Just y') -> x + y'
+              (Just x', Nothing) -> negate (x' + y)
+              _ -> case (x,y) of (SExpr x' _, SExpr y' _) -> SExpr (x' - y') Nothing
+                                 _ -> SSub x y
 
   abs = error "abs not defined for Num Sca"
   signum = error "signum not defined for Num Sca"
   fromInteger = (\x -> x Nothing) . SExpr . fromInteger
-  negate (SNeg x) = x
-  negate x = SNeg x
+  negate x = case fromNeg x of Nothing -> SNeg x
+                               Just x' -> x'
 
 instance Fractional Sca where
   (/) x y
     | isVal 1 y = x
     | isVal 0 y = error "Fractional Sca (/): divide by 0"
     | isVal 0 x = 0
-    | otherwise = case (x,y) of (SExpr x' _, SExpr y' _) -> SExpr (x' / y') Nothing
-                                _ -> SDiv x y
+  (/) x y = case (fromNeg x, fromNeg y) of
+              (Just x', Just y') -> x' / y'
+              (Nothing, Just y') -> negate (x  / y')
+              (Just x', Nothing) -> negate (x' / y )
+              _ -> case (x,y) of (SExpr x' _, SExpr y' _) -> SExpr (x' / y') Nothing
+                                 _ -> SDiv x y
 
   fromRational = (\x -> x Nothing) . SExpr . fromRational
 

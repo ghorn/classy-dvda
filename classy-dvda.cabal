@@ -23,7 +23,7 @@ library
                        Classy.VectorMath
   other-modules:       Kitesys
   build-depends:       base >= 4   && < 5,
-                       dvda >= 0.3 && < 0.4,
+                       dvda >= 0.3.0.1 && < 0.4,
                        -- unordered-containers and hashable will use the same version that dvda uses
                        -- so we don't need to specify
                        unordered-containers,
