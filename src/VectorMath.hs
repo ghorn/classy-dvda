@@ -19,6 +19,7 @@ module VectorMath ( ddt
                   , time
                   , xyzVec
                   , parentFrame
+                  , subtractPoints
                   ) where
 
 import Data.Maybe ( catMaybes )
@@ -276,3 +277,24 @@ scaleBasis s b = removeZeros $ Vec (HM.singleton b s)
 -- | the independent variable time used in taking time derivatives
 time :: Expr Double
 time = sym "t"
+
+-- | Given two lists, keeps chopping of the heads of these lists while entries compare to equal
+-- removeCommonList [4,5] [1,2,3]  => ([4,5],[1,2,3])
+-- removeCommonList [1,4] [1,2,3]  => ([5],[2,3])
+-- removeCommonList [1,2] [1,2,3]  => ([],[3])
+removeCommonList :: Eq a => [a] -> [a] -> ([a],[a])
+removeCommonList [] other  = ([], other)
+removeCommonList other  [] = (other, [])
+removeCommonList (f1:t1) (f2:t2)
+  | f1 == f2  = removeCommonList t1 t2
+  | otherwise = (f1:t1, f2:t2)
+
+subtractPoints :: Point -> Point -> Vec
+subtractPoints vx vy =
+     foldl (+) 0 a + foldl (-) 0 b
+       where 
+         (a,b) = removeCommonList (reverse $ vecsFromN0 vx) (reverse $ vecsFromN0 vy)
+
+
+
+

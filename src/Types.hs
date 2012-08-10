@@ -17,6 +17,7 @@ module Types ( Sca(..)
              , equivBases
              , foldSca
              , vecFromN0
+             , vecsFromN0
              ) where
 
 import Data.Hashable
@@ -265,13 +266,17 @@ instance Show Frame where
 instance Show Point where
   show = show . vecFromN0
 
-instance Eq Point where
-  x == y = vecFromN0 x == vecFromN0 y
+
+
 
 -------------------- utils ---------------
 vecFromN0 :: Point -> Vec
 vecFromN0 N0 = 0
 vecFromN0 (RelativePoint p0 v) = v + vecFromN0 p0
+
+vecsFromN0 :: Point -> [Vec]
+vecsFromN0 N0 = []
+vecsFromN0 (RelativePoint p0 v) = v:(vecsFromN0 p0)
 
 foldSca :: (Sca -> b -> b) -> b -> Sca -> b
 foldSca f acc s@(SExpr _ _) = f s acc
