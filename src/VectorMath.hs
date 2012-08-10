@@ -289,12 +289,8 @@ removeCommonList (f1:t1) (f2:t2)
   | f1 == f2  = removeCommonList t1 t2
   | otherwise = (f1:t1, f2:t2)
 
+-- | subtractPoints x y = x - y
 subtractPoints :: Point -> Point -> Vec
-subtractPoints vx vy =
-     foldl (+) 0 a + foldl (-) 0 b
-       where 
-         (a,b) = removeCommonList (reverse $ vecsFromN0 vx) (reverse $ vecsFromN0 vy)
-
-
-
-
+subtractPoints vx vy = sum a - sum b
+  where 
+    (a,b) = removeCommonList (reverse $ vecsFromN0 vx) (reverse $ vecsFromN0 vy)

@@ -267,8 +267,6 @@ instance Show Point where
   show = show . vecFromN0
 
 
-
-
 -------------------- utils ---------------
 vecFromN0 :: Point -> Vec
 vecFromN0 N0 = 0
