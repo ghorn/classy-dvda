@@ -49,9 +49,9 @@ module Classy ( -- * refernce frames
 
 import Dvda ( symDependent, sym )
 
-import System
-import Types
-import VectorMath
+import Classy.System
+import Classy.Types
+import Classy.VectorMath
 
 -- | the one unique newtonian frame which all other frame are defined relative to
 newtonianBases :: Bases

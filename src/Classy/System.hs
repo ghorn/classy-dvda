@@ -1,21 +1,21 @@
 {-# OPTIONS_GHC -Wall #-}
 
-module System ( Body(..)
-              , Torque(..)
-              , Forces(..)
-              , getCMPos
-              , generalizedForce
-              , generalizedEffectiveForce
-              , kaneEq
-              , kaneEqs
-              ) where
+module Classy.System ( Body(..)
+                     , Torque(..)
+                     , Forces(..)
+                     , getCMPos
+                     , generalizedForce
+                     , generalizedEffectiveForce
+                     , kaneEq
+                     , kaneEqs
+                     ) where
 
 --import Data.HashSet ( HashSet )
 --import qualified Data.HashSet as HS
 --import qualified Data.HashMap.Lazy as HM
 
-import VectorMath
-import Types
+import Classy.VectorMath
+import Classy.Types
 
 -- | pure torque
 data Torque = Torque Vec deriving Show

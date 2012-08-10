@@ -15,10 +15,10 @@ cabal-version:       >=1.8
 library
   hs-source-dirs:      src
   exposed-modules:     Classy,
-                       VectorMath,
-                       System,
-                       Types,
-                       Examples
+                       Classy.VectorMath,
+                       Classy.System,
+                       Classy.Types,
+                       Classy.Examples
   other-modules:       Kitesys
   build-depends:       base >= 4   && < 5,
                        dvda >= 0.3 && < 0.4,

@@ -1,8 +1,8 @@
 {-# OPTIONS_GHC -Wall #-}
 
-module Examples ( simple
-                , blah
-                ) where
+module Classy.Examples ( simple
+                       , blah
+                       ) where
 
 import Classy
 

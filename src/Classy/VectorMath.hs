@@ -1,27 +1,27 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# Language MultiParamTypeClasses #-}
 
-module VectorMath ( ddt
-                  , ddtN
-                  , ddtNp
-                  , ddtF
-                  , partial
-                  , partialV
-                  , cross
-                  , dot
-                  , dyadDot
-                  , dyadicDot
-                  , scale
-                  , scaleBasis
-                  , isCoord
-                  , isSpeed
-                  , angVelWrt
-                  , angVelWrtN
-                  , time
-                  , xyzVec
-                  , parentBases
-                  , subtractPoints
-                  ) where
+module Classy.VectorMath ( ddt
+                         , ddtN
+                         , ddtNp
+                         , ddtF
+                         , partial
+                         , partialV
+                         , cross
+                         , dot
+                         , dyadDot
+                         , dyadicDot
+                         , scale
+                         , scaleBasis
+                         , isCoord
+                         , isSpeed
+                         , angVelWrt
+                         , angVelWrtN
+                         , time
+                         , xyzVec
+                         , parentBases
+                         , subtractPoints
+                         ) where
 
 import Data.Maybe ( catMaybes )
 import qualified Data.HashMap.Lazy as HM
@@ -30,7 +30,7 @@ import Debug.Trace
 import Dvda
 import Dvda.Expr ( Expr(..), Sym(..) )
 
-import Types
+import Classy.Types
 
 -- | express a vector as x/y/z components of a given frame
 xyzVec :: (Sca,Sca,Sca) -> Bases -> Vec
@@ -41,7 +41,6 @@ xyzVec (sx,sy,sz) frame =
 
 ddt :: Sca -> Sca
 ddt = flip partial (SExpr time Nothing)
-
 
 -- | time derivative in a rotating frame w.r.t the newtonian frame
 ddtN :: Vec -> Vec

@@ -1,24 +1,24 @@
 {-# OPTIONS_GHC -Wall #-}
 
-module Types ( Sca(..)
-             , Vec(..)
-             , XYZ(..)
-             , Point(..)
-             , Basis(..)
-             , Bases(..)
-             , Rotation(..)
-             , Dyad(..)
-             , Dyadic(..)
-             , Equation(..)
-             , Equations(..)
-             , zeroVec
-             , removeZeros
-             , isVal
-             , equivBases
-             , foldSca
-             , vecFromN0
-             , vecsFromN0
-             ) where
+module Classy.Types ( Sca(..)
+                    , Vec(..)
+                    , XYZ(..)
+                    , Point(..)
+                    , Basis(..)
+                    , Bases(..)
+                    , Rotation(..)
+                    , Dyad(..)
+                    , Dyadic(..)
+                    , Equation(..)
+                    , Equations(..)
+                    , zeroVec
+                    , removeZeros
+                    , isVal
+                    , equivBases
+                    , foldSca
+                    , vecFromN0
+                    , vecsFromN0
+                    ) where
 
 import Data.Hashable
 import Data.HashMap.Lazy ( HashMap )
