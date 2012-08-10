@@ -101,10 +101,7 @@ generalizedForce gspeed (RigidBody _ _ pos frame forces' (Torque torque)) = tran
     vel = ddtNp pos
     translational = partialV vel gspeed `dot` (sum $ map snd forces)
     rotational    = partialV w gspeed `dot` (torque + (sum $ map (\(p,f) -> (subtractPoints p pos) `cross` f) forces))
-      where
-        subtractPoints :: Point -> Point -> Vec
-        subtractPoints vx vy = (vecFromN0 vx) - (vecFromN0 vy)
-
+    
 kaneEq :: [Body] -> Sca -> Equation Sca
 kaneEq bodies gspeed
   | not (isSpeed gspeed) = error $ "kaneEq given something that is not a generalized speed: " ++ show gspeed
