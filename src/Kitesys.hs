@@ -4,45 +4,48 @@ module Kitesys where
 
 import Classy
 
-n = newtonianBases
+model :: ClassySystem
+model = runClassyState $ do
+  n <- newtonianBases
 
-rArm = param "R"
-delta = coord "d"
+  rArm <- addParam "R"
+  delta <- addCoord "d"
 
-carouselBases = rotZ n delta "C"
+  carouselBases <- rotZ n delta "C"
 
-lineWy = speed "lwz"
-lineWz = speed "lwy"
+  lineWy <- addSpeed "lwz"
+  lineWz <- addSpeed "lwy"
 
-lineBases = frameWithAngVel carouselBases (0,lineWy,lineWz) "L"
+  let lineBases = basesWithAngVel carouselBases (0,lineWy,lineWz) "L"
 
-rLine = param "r"
+  rLine <- addParam "r"
 
-jx = param "Jx"
-jy = param "Jy"
-jz = param "Jz"
+  jx <- addParam "Jx"
+  jy <- addParam "Jy"
+  jz <- addParam "Jz"
 
-wx = speed "wx"
-wy = speed "wy"
-wz = speed "wz"
+  wx <- addSpeed "wx"
+  wy <- addSpeed "wy"
+  wz <- addSpeed "wz"
 
-m = param "m"
-kiteBases = frameWithAngVel n (wx,wy,wz) "K"
-r'n0'k = RelativePoint N0 $ xVec rArm carouselBases + xVec rLine lineBases
+  m <- addParam "m"
+  let kiteBases = basesWithAngVel n (wx,wy,wz) "K"
+  let r'n0'k = relativePoint N0 $ xVec rArm carouselBases + xVec rLine lineBases
 
-fx = param "Fx"
-fy = param "Fy"
-fz = param "Fz"
-mx = param "Tx"
-my = param "Ty"
-mz = param "Tz"
-force =  Forces  [(r'n0'k, xyzVec (fx,fy,fz) kiteBases)]
-torque = Torque $ xyzVec (mx,my,mz) kiteBases
+  fx <- addParam "Fx"
+  fy <- addParam "Fy"
+  fz <- addParam "Fz"
+  mx <- addParam "Tx"
+  my <- addParam "Ty"
+  mz <- addParam "Tz"
 
-kite = RigidBody m (simpleDyadic jx jy jz kiteBases) r'n0'k kiteBases force torque
+  kite <- addRigidBody m (simpleDyadic jx jy jz kiteBases) r'n0'k kiteBases
+  addForce kite r'n0'k (xyzVec (fx,fy,fz) kiteBases)
+  addMoment kite (xyzVec (mx,my,mz) kiteBases)
+
 
 run :: IO ()
 run = do
-  print kite
-  putStrLn "kane's eqs: "
-  print $ kaneEqs [kite] [wx,wy,wz,ddt delta]
+  print model
+  putStrLn "\n--------------- kane's eqs: ------------------"
+  print $ kanes model

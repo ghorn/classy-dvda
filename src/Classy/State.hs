@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# Language DoAndIfThenElse #-}
 
-module Classy.State ( ClassyState(..)
+module Classy.State ( ClassySystem(..)
                     -- * scalars
                     , addParam, addAction, addCoord, addSpeed
                     , derivIsSpeed
@@ -9,11 +9,15 @@ module Classy.State ( ClassyState(..)
                     -- * bases
                     , newtonianBases
                     , rotXYZ, rotX, rotY, rotZ
+                    , basesWithAngVel
                     -- * bodies
                     , addParticle
+                    , addRigidBody
                     , addForce
+                    , addForceAtCm
+                    , addMoment
 
-                    , emptyClassyState
+                    , runClassyState
                     , kanes
                     , run
                     ) where
@@ -24,6 +28,8 @@ import qualified Data.HashMap.Lazy as HM
 import Data.HashSet ( HashSet )
 import qualified Data.HashSet as HS
 
+import Dvda ( symDependent, sym )
+
 import qualified Classy.Convenience as CC
 import Classy.Differentiation ( ddt )
 import Classy.System
@@ -32,59 +38,72 @@ import Classy.VectorMath ( scaleBasis )
 
 data DCM = SimpleRot XYZ Sca deriving Show
 
-data ClassyState = ClassyState { csCoords :: HashSet Sca
-                               , csSpeeds :: HashSet Sca
-                               , csParams :: HashSet Sca
-                               , csActions :: HashSet Sca
-                               , csCoordDerivs :: HashMap Sca Sca
-                               , csBases :: HashSet Bases
-                               , csDots :: HashMap (Basis, Basis) Sca
-                               , csParticles :: HashMap (Sca,Point) Forces'
-                               } deriving Show
+data ClassySystem = ClassySystem { csCoords :: HashSet Sca
+                                 , csSpeeds :: HashSet Sca
+                                 , csParams :: HashSet Sca
+                                 , csActions :: HashSet Sca
+                                 , csCoordDerivs :: HashMap Sca Sca
+                                 , csBases :: HashSet Bases
+                                 , csDots :: HashMap (Basis, Basis) Sca
+                                 , csBodies :: HashMap Body (Forces,Moments)
+                                 , csNewtonianBases :: Maybe Bases
+                                 } deriving Show
 
-emptyClassyState :: ClassyState
-emptyClassyState = ClassyState { csCoords = HS.empty
-                               , csSpeeds = HS.empty
-                               , csParams = HS.empty
-                               , csActions = HS.empty
-                               , csCoordDerivs = HM.empty
-                               , csBases = HS.empty
-                               , csDots = HM.empty
-                               , csParticles = HM.empty
-                               }
+runClassyState :: State ClassySystem a -> ClassySystem
+runClassyState = flip execState emptyClassySystem
+  where
+    emptyClassySystem = ClassySystem { csCoords = HS.empty
+                                   , csSpeeds = HS.empty
+                                   , csParams = HS.empty
+                                   , csActions = HS.empty
+                                   , csCoordDerivs = HM.empty
+                                   , csBases = HS.empty
+                                   , csDots = HM.empty
+                                   , csBodies = HM.empty
+                                   , csNewtonianBases = Nothing
+                                   }
 
-data Body' = Particle' Sca Point deriving (Eq, Show)
-data Forces' = Forces' [(Point,Vec)] deriving Show
+-- | the one unique newtonian frame which all other frame are defined relative to
+newtonianBases :: State ClassySystem Bases
+newtonianBases = do
+  cs <- get
+  case csNewtonianBases cs of
+    Just _ -> error "newtonianBases: already set!"
+    Nothing -> do
+      let nb = NewtonianBases
+      put $ cs{ csNewtonianBases = Just nb }
+      return nb
 
-addParam :: String -> State ClassyState Sca
+
+addParam :: String -> State ClassySystem Sca
 addParam name = do
   cs <- get
-  let p = CC.param name
+  let p = SExpr (sym name) Nothing
   put $ cs{ csParams = HS.insert p (csParams cs) }
   return p
 
-addAction :: String -> State ClassyState Sca
+addAction :: String -> State ClassySystem Sca
 addAction name = do
   cs <- get
-  let u = CC.param name
+  let u = SExpr (sym name) Nothing
   put $ cs{ csActions = HS.insert u (csActions cs) }
   return u
 
-addCoord :: String -> State ClassyState Sca
+addCoord :: String -> State ClassySystem Sca
 addCoord name = do
   cs <- get
-  let c = CC.coord name
+  let c = SExpr (symDependent name time) (Just 0)
   put $ cs{ csCoords = HS.insert c (csCoords cs) }
   return c
 
-addSpeed :: String -> State ClassyState Sca
+addSpeed :: String -> State ClassySystem Sca
 addSpeed name = do
   cs <- get
-  let s = CC.speed name
+  let s = SExpr (symDependent name time) (Just 1)
   put $ cs{ csSpeeds = HS.insert s (csSpeeds cs) }
   return s
 
-setDeriv :: Sca -> Sca -> State ClassyState ()
+setDeriv :: Sca -> Sca -> State ClassySystem ()
 setDeriv c c' =
   if not (isCoord c)
   then error "you can only set the derivative of a coordinate with setDeriv"
@@ -94,7 +113,7 @@ setDeriv c c' =
         newCoordDerivs = HM.insertWith err c c' (csCoordDerivs cs)
     put $ cs{ csCoordDerivs = newCoordDerivs }
                   
-derivIsSpeed :: Sca -> State ClassyState ()
+derivIsSpeed :: Sca -> State ClassySystem ()
 derivIsSpeed c = do
   let s = ddt c
   if not (isCoord c)
@@ -108,25 +127,54 @@ derivIsSpeed c = do
     put $ cs{ csSpeeds = newSpeeds }
     setDeriv c s
 
-addParticle :: Sca -> Point -> State ClassyState Body'
+addParticle :: Sca -> Point -> State ClassySystem Body
 addParticle mass position = do
   cs <- get
-  let err = error $ "error: you tried to add an existing particle with \"addParticle\""
-  put $ cs{ csParticles = HM.insertWith err (mass,position) (Forces' []) (csParticles cs) }
-  return $ Particle' mass position
+  let err = error $ "error: you tried to add an existing particle with \"addParticle\"\n"++show p
+      p = Particle mass position
+  put $ cs{ csBodies = HM.insertWith err p (Forces [], Moments []) (csBodies cs) }
+  return p
 
-addForce :: Body' -> Vec -> State ClassyState ()
-addForce p@(Particle' mass pos) force = do
+addRigidBody :: Sca -> Dyadic -> Point -> Bases -> State ClassySystem Body
+addRigidBody mass dyadic position bases = do
   cs <- get
-  let newForces = case HM.lookup (mass,pos) (csParticles cs) of
+  let err = error $ "error: you tried to add an existing rigid body with \"addRigidBody\"\n"++show rb
+      rb = RigidBody mass dyadic position bases
+  put $ cs{ csBodies = HM.insertWith err rb (Forces [], Moments []) (csBodies cs) }
+  return rb
+
+-- | add a force to a rigidy body to be applied at a given point
+addForce :: Body -> Point -> Vec -> State ClassySystem ()
+addForce p@(Particle _ _) pos force = do
+  cs <- get
+  let newForcesMoments = case HM.lookup p (csBodies cs) of
         Nothing -> error $ "addForce: called on unknown particle: " ++ show p
-        Just (Forces' fs) -> Forces' ((pos,force):fs)
-  put $ cs{ csParticles = HM.insert (mass,pos) newForces (csParticles cs) }
+        Just (Forces fs,ts) -> (Forces ((pos,force):fs), ts)
+  put $ cs{ csBodies = HM.insert p newForcesMoments (csBodies cs) }
+addForce rb@(RigidBody _ _ _ _) pos force = do
+  cs <- get
+  let newForcesMoments = case HM.lookup rb (csBodies cs) of
+        Nothing -> error $ "addForce: called on unknown rigid body: " ++ show rb
+        Just (Forces fs, ts) -> (Forces ((pos,force):fs), ts)
+  put $ cs{ csBodies = HM.insert rb newForcesMoments (csBodies cs) }
 
-newtonianBases :: State ClassyState Bases
-newtonianBases = return CC.newtonianBases
+-- | add a force to a rigidy body to be applied at the body's center of mass
+addForceAtCm :: Body -> Vec -> State ClassySystem ()
+addForceAtCm b force = addForce b (getCMPos b) force
 
-rotXYZ :: XYZ -> Bases -> Sca -> String -> State ClassyState Bases
+addMoment :: Body -> Vec -> State ClassySystem ()
+addMoment p@(Particle _ _) _ =
+  error $ "addMoment: called on particle: " ++ show p ++ ", can only call addMoment on a rigid body"
+addMoment rb@(RigidBody _ _ _ _) moment = do
+  cs <- get
+  let newForcesMoments = case HM.lookup rb (csBodies cs) of
+        Nothing -> error $ "addMoment: called on unknown rigid body: " ++ show rb
+        Just (fs, Moments ts) -> (fs, Moments (moment:ts))
+  put $ cs{ csBodies = HM.insert rb newForcesMoments (csBodies cs) }
+
+-- should check for generalized speeds/coords
+-- | define a new frame as x, y or z rotation about given frame, providing the name of the new frame
+rotXYZ :: XYZ -> Bases -> Sca -> String -> State ClassySystem Bases
 rotXYZ xyz b0 q name = do
   cs <- get
   let newBases' =
@@ -166,10 +214,20 @@ rotXYZ xyz b0 q name = do
            }
   return newBases
 
-rotX,rotY,rotZ :: Bases -> Sca -> String -> State ClassyState Bases
+-- | convenience functions for calling rotXYZ
+rotX,rotY,rotZ :: Bases -> Sca -> String -> State ClassySystem Bases
 rotX = rotXYZ X
 rotY = rotXYZ Y
 rotZ = rotXYZ Z
+
+-- | @c = frameWithAngVel n (wx,wy,wz) name@ defines a new frame @c@ named @name@
+--  which is defined as having angular velocity @wx*cx>+ wy*cy> + wz*cz>@ with respect to frame @n@
+basesWithAngVel :: Bases -> (Sca,Sca,Sca) -> String -> Bases
+basesWithAngVel f0 (wx,wy,wz) name
+  | any isCoord [wx,wy,wz] =
+    error $ "frameWithAngVel can't be given generalized coordinates " ++
+    show (filter isCoord [wx,wy,wz]) ++ " as speeds"
+  | otherwise = RotatedBases f0 (RotSpeed (wx,wy,wz)) name
 
 simplifyDcms :: HashMap (Basis,Basis) Sca -> Sca -> Sca
 simplifyDcms hm s@(SDot (b0,b1) x) =
@@ -184,7 +242,7 @@ simplifyDcms hm (SMul x y) = (simplifyDcms hm x) * (simplifyDcms hm y)
 simplifyDcms hm (SDiv x y) = (simplifyDcms hm x) / (simplifyDcms hm y)
 simplifyDcms _ s@(SExpr _ _) = s
 
-kanes :: ClassyState -> [Equation Sca]
+kanes :: ClassySystem -> [Equation Sca]
 kanes cs = mapEqs (simplifyDcms (csDots cs)) unsimplifiedEqs
   where
     mapEqs :: (a -> b) -> [Equation a] -> [Equation b]
@@ -192,13 +250,12 @@ kanes cs = mapEqs (simplifyDcms (csDots cs)) unsimplifiedEqs
       where
         fmapEq f (Equation x c y) = Equation (f x) c (f y)
 
-    unsimplifiedEqs = kaneEqs bodies speeds
-    bodies = map (\((mass,pos), Forces' fs) -> Particle mass pos (Forces fs))
-             (HM.toList $ csParticles cs)
+    unsimplifiedEqs = kaneEqs bodiesForcesMoments speeds
+    bodiesForcesMoments = map (\(body, (fs,ts)) -> (body,fs,ts)) (HM.toList $ csBodies cs)
     speeds = HS.toList (csSpeeds cs)
 
 run :: [Equation Sca]
-run = kanes $ flip execState emptyClassyState $ do
+run = kanes $ runClassyState $ do
   n <- newtonianBases
 
   q <- addCoord "q"
@@ -215,5 +272,5 @@ run = kanes $ flip execState emptyClassyState $ do
   let r_b_n0 = CC.relativePoint N0 (CC.zVec r b)
 
   basket <- addParticle mass r_b_n0
-  addForce basket (CC.zVec (mass*g) n)
-  addForce basket (CC.zVec (-tension) b)
+  addForceAtCm basket (CC.zVec (mass*g) n)
+  addForceAtCm basket (CC.zVec (-tension) b)

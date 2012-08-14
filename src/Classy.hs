@@ -5,17 +5,19 @@ module Classy ( -- * refernce frames
                 newtonianBases
               , rotXYZ
               , rotX, rotY, rotZ
-              , frameWithAngVel
+              , basesWithAngVel
                 -- * needed to write type signatures
+              , ClassySystem
               , Sca
               , Vec
               , Bases
                 -- * some primitives
               , XYZ(..)
-              , Point(..)
-              , coord
-              , speed
-              , param
+              , Point(N0)
+              , addCoord
+              , addSpeed
+              , addParam
+              , addAction
               , relativePoint
                 -- * vector/frame operations
               , xyzVec
@@ -39,17 +41,19 @@ module Classy ( -- * refernce frames
               , partial
               , partialV
                 -- * mechanical system and dynamics
-              , Body(..)
-              , Torque(..)
-              , Forces(..)
+              , addRigidBody
+              , addParticle
+              , addMoment
+              , addForce
+              , runClassyState
               , generalizedForce
               , generalizedEffectiveForce
-              , kaneEq
-              , kaneEqs
+              , kanes
               ) where
 
 import Classy.Convenience
 import Classy.Differentiation
+import Classy.State
 import Classy.System
 import Classy.Types
 import Classy.VectorMath

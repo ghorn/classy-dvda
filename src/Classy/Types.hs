@@ -1,7 +1,11 @@
 {-# OPTIONS_GHC -Wall #-}
 
-module Classy.Types ( Sca(..)
+module Classy.Types ( -- * math types
+                      Sca(..)
                     , Vec(..)
+                    , Equation(..)
+                    , Equations(..)
+                      -- * spatial types
                     , XYZ(..)
                     , Point(..)
                     , Basis(..)
@@ -9,8 +13,11 @@ module Classy.Types ( Sca(..)
                     , Rotation(..)
                     , Dyad(..)
                     , Dyadic(..)
-                    , Equation(..)
-                    , Equations(..)
+                      -- * dynamics types
+                    , Body(..)
+                    , Forces(..)
+                    , Moments(..)
+                      -- * utility functions
                     , zeroVec
                     , removeZeros
                     , isVal
@@ -58,12 +65,12 @@ data Rotation = RotSpeed (Sca,Sca,Sca)
               | RotCoord Vec deriving (Show, Eq)
 --              | RotCoordSpeed Vec Vec
 
-data Dyad = Dyad Sca Basis Basis
+data Dyad = Dyad Sca Basis Basis deriving Eq
 instance Show Dyad where
   showsPrec d (Dyad x b1 b2) = showParen (d > 7) $
                                showsPrec 7 x . showString "*" . showsPrec 7 b1 . showsPrec 7 b2
 
-data Dyadic = Dyadic ((Dyad, Dyad, Dyad), (Dyad, Dyad, Dyad), (Dyad, Dyad, Dyad))
+data Dyadic = Dyadic ((Dyad, Dyad, Dyad), (Dyad, Dyad, Dyad), (Dyad, Dyad, Dyad)) deriving Eq
 instance Show Dyadic where
   show (Dyadic ((xx,xy,xz), (yx,yy,yz), (zx,zy,zz))) = intercalate " + " $ map show xs
     where
@@ -97,6 +104,25 @@ instance Eq Sca where
 -- | Lots of things carry around a list of all equivalent bases
 --   For example: if you start with frame N and rotate about Nz to get A, then Nz == Az
 type EquivBases = (HashSet (Basis, Basis))
+
+
+-- | pure moments
+data Moments = Moments [Vec] deriving Show
+
+-- | Forces are defined as list of tuples of (where force is applied, force being applied)
+data Forces = Forces [(Point,Vec)] deriving (Eq, Show)
+
+data Body = Particle
+            Sca --  mass
+            Point --  position relative to N0
+          | RigidBody
+            Sca --  mass
+            Dyadic --  inertia dyadic
+            Point --  cm position relative to N0
+            Bases --  reference bases attached to the rigid body (for getting angular velocity)
+          deriving Eq
+
+
 
 ------------------------- get equivilant bases ---------------------------
 class HasEquivBases a where
@@ -158,6 +184,15 @@ instance Hashable Point where
   hash N0 = hash "N0"
   hash (RelativePoint p v) = hash "RelativePoint" `combine` hash p `combine` hash v
 
+instance Hashable Dyad where
+  hash (Dyad sca b0 b1) = hash ("Dyad", sca, b0, b1)
+
+instance Hashable Dyadic where
+  hash (Dyadic x) = hash ("Dyadic",x)
+
+instance Hashable Body where
+  hash (Particle mass pos) = hash ("Particle", mass, pos)
+  hash (RigidBody mass inertia pos bases) = hash ("RigidBody",mass,inertia,pos,bases)
 
 ------------------------- Num/Fractional instances ---------------------------------
 -- if the input Sca is the result of unary negation, return the un-negated version
@@ -299,6 +334,18 @@ instance Show Bases where
 instance Show Point where
   show = show . vecFromN0
 
+instance Show Body where
+  show (Particle mass pos) = unlines [ "Particle"
+                                    , "mass: " ++ show mass
+                                    , "position: " ++ show pos
+                                    ]
+  show (RigidBody mass inertia pos frame) =
+    unlines [ "RigidBody"
+            , "mass: " ++ show mass
+            , "inertia: " ++ show inertia
+            , "position: " ++ show pos
+            , "frame: " ++ show frame
+            ]
 
 -------------------- utils ---------------
 vecFromN0 :: Point -> Vec

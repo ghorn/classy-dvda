@@ -1,61 +1,13 @@
 {-# OPTIONS_GHC -Wall #-}
 
-module Classy.Convenience ( newtonianBases
-                          , rotXYZ
-                          , rotX, rotY, rotZ
-                          , frameWithAngVel
-                          , coord, speed, param
-                          , basisVec
+module Classy.Convenience ( basisVec
                           , xVec, yVec, zVec
                           , simpleDyadic
                           , relativePoint
                           ) where
 
-import Dvda ( symDependent, sym )
-
 import Classy.Types
 import Classy.VectorMath
-
--- | the one unique newtonian frame which all other frame are defined relative to
-newtonianBases :: Bases
-newtonianBases = NewtonianBases
-
--- | define a new frame as x, y or z rotation about given frame, providing the name of the new frame
-rotXYZ :: XYZ -> Bases -> Sca -> String -> Bases -- should check for generalized speeds/coords
-rotXYZ xyz f0 q name
-  | name `elem` ["N","n"] =
-    error "don't name your frame \"N\" or \"n\", those are reserved for the unique newtonian frame"
-  | otherwise = RotatedBases f0 (RotCoord (scaleBasis q rotationBasis)) name
-  where
-    rotationBasis = Basis f0 xyz
-
--- | @c = frameWithAngVel n (wx,wy,wz) name@ defines a new frame @c@ named @name@
---  which is defined as having angular velocity @wx*cx>+ wy*cy> + wz*cz>@ with respect to frame @n@
-frameWithAngVel :: Bases -> (Sca,Sca,Sca) -> String -> Bases
-frameWithAngVel f0 (wx,wy,wz) name
-  | coords /= [] =
-    error $ "frameWithAngVel can't be given generalized coordinates " ++ show coords ++ " as speeds"
-  | otherwise = RotatedBases f0 (RotSpeed (wx,wy,wz)) name
-  where
-    coords = filter isCoord [wx,wy,wz]
-
--- | generalized coordinate
-coord :: String -> Sca
-coord name = SExpr (symDependent name time) (Just 0)
-
--- | generalized speed
-speed :: String -> Sca
-speed name = SExpr (symDependent name time) (Just 1)
-
--- | constant but symbolic parameter
-param :: String -> Sca
-param name = SExpr (sym name) Nothing
-
--- | convenience functions for calling rotXYZ
-rotX,rotY,rotZ :: Bases -> Sca -> String -> Bases
-rotX = rotXYZ X
-rotY = rotXYZ Y
-rotZ = rotXYZ Z
 
 ---- | create a basis from a frame and X or Y or Z
 --basis :: Bases -> XYZ -> Basis
@@ -70,7 +22,6 @@ xVec,yVec,zVec :: Sca -> Bases -> Vec
 xVec s frame = basisVec s frame X
 yVec s frame = basisVec s frame Y
 zVec s frame = basisVec s frame Z
-
 
 -- | specify the xx,yy,zz components of the moment of inertia dyadic in a given frame
 --   all other components are zero
