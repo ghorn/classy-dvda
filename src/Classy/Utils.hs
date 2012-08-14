@@ -14,7 +14,7 @@ parentBases (RotatedBases frame0 _ _) = frame0
 -- | Return the lineage of frames, the last entry always being the newtonian frame
 parentBasesChain :: Bases -> [Bases]
 parentBasesChain NewtonianBases = [NewtonianBases]
-parentBasesChain frame = frame:(parentBasesChain $ parentBases frame)
+parentBasesChain frame = frame : parentBasesChain (parentBases frame)
 
 -- | Given two frames, finds the closest ancestor frame (in terms of dependency)
 -- If all else fails, the newtonian reference frame is always a valid answer

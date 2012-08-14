@@ -151,7 +151,7 @@ addForce p@(Particle _ _) pos force = do
         Nothing -> error $ "addForce: called on unknown particle: " ++ show p
         Just (Forces fs,ts) -> (Forces ((pos,force):fs), ts)
   put $ cs{ csBodies = HM.insert p newForcesMoments (csBodies cs) }
-addForce rb@(RigidBody _ _ _ _) pos force = do
+addForce rb@(RigidBody{}) pos force = do
   cs <- get
   let newForcesMoments = case HM.lookup rb (csBodies cs) of
         Nothing -> error $ "addForce: called on unknown rigid body: " ++ show rb
@@ -160,12 +160,12 @@ addForce rb@(RigidBody _ _ _ _) pos force = do
 
 -- | add a force to a rigidy body to be applied at the body's center of mass
 addForceAtCm :: Body -> Vec -> State ClassySystem ()
-addForceAtCm b force = addForce b (getCMPos b) force
+addForceAtCm b = addForce b (getCMPos b)
 
 addMoment :: Body -> Vec -> State ClassySystem ()
 addMoment p@(Particle _ _) _ =
   error $ "addMoment: called on particle: " ++ show p ++ ", can only call addMoment on a rigid body"
-addMoment rb@(RigidBody _ _ _ _) moment = do
+addMoment rb@(RigidBody{}) moment = do
   cs <- get
   let newForcesMoments = case HM.lookup rb (csBodies cs) of
         Nothing -> error $ "addMoment: called on unknown rigid body: " ++ show rb
@@ -236,10 +236,10 @@ simplifyDcms hm s@(SDot (b0,b1) x) =
     (Just dotted,_) -> x*dotted
     (_,Just dotted) -> x*dotted
 simplifyDcms hm (SNeg x) = negate (simplifyDcms hm x)
-simplifyDcms hm (SAdd x y) = (simplifyDcms hm x) + (simplifyDcms hm y)
-simplifyDcms hm (SSub x y) = (simplifyDcms hm x) - (simplifyDcms hm y)
-simplifyDcms hm (SMul x y) = (simplifyDcms hm x) * (simplifyDcms hm y)
-simplifyDcms hm (SDiv x y) = (simplifyDcms hm x) / (simplifyDcms hm y)
+simplifyDcms hm (SAdd x y) = simplifyDcms hm x + simplifyDcms hm y
+simplifyDcms hm (SSub x y) = simplifyDcms hm x - simplifyDcms hm y
+simplifyDcms hm (SMul x y) = simplifyDcms hm x * simplifyDcms hm y
+simplifyDcms hm (SDiv x y) = simplifyDcms hm x / simplifyDcms hm y
 simplifyDcms _ s@(SExpr _ _) = s
 
 kanes :: ClassySystem -> [Equation Sca]

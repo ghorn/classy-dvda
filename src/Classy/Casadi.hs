@@ -22,14 +22,14 @@ import Classy.Types
 toExpr :: Sca -> Expr Double
 toExpr (SExpr e _) = e
 toExpr (SNeg e) = negate (toExpr e)
-toExpr (SAdd x y) = (toExpr x) + (toExpr y)
-toExpr (SSub x y) = (toExpr x) - (toExpr y)
-toExpr (SMul x y) = (toExpr x) * (toExpr y)
-toExpr (SDiv x y) = (toExpr x) / (toExpr y)
+toExpr (SAdd x y) = toExpr x + toExpr y
+toExpr (SSub x y) = toExpr x - toExpr y
+toExpr (SMul x y) = toExpr x * toExpr y
+toExpr (SDiv x y) = toExpr x / toExpr y
 toExpr e@(SDot _ _) = error $ "toExpr got something it couldn't convert to an Expr: " ++ show e
 
 showlist :: [String] -> String
-showlist xs = '[':(intercalate ", " xs) ++ "]"
+showlist xs = '[' : intercalate ", " xs ++ "]"
 
 someSys :: ClassyState
 someSys = flip execState emptyClassyState $ do

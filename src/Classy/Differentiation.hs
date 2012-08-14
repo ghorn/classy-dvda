@@ -34,8 +34,8 @@ ddtF (Vec hm0) baseFrame = removeZeros $ (\(x,y) -> sum x + sum y) $ unzip $ map
     ddtF' (basis, sca) = (scaleBasis (ddt sca) basis, ddtFBasis basis) -- add these up at the end (improves symbolic simplification)
       where
         ddtFBasis :: Basis -> Vec
-        ddtFBasis (Basis bf _) = (angVelWrt bf baseFrame) `cross` scaleBasis sca basis
-        ddtFBasis (Cross bf0 bf1) = (ddtF v0 baseFrame) `cross` v1 + v0 `cross` (ddtF v1 baseFrame)
+        ddtFBasis (Basis bf _) = angVelWrt bf baseFrame `cross` scaleBasis sca basis
+        ddtFBasis (Cross bf0 bf1) = ddtF v0 baseFrame `cross` v1 + v0 `cross` ddtF v1 baseFrame
           where
             v0 = scaleBasis 1 bf0
             v1 = scaleBasis 1 bf1
@@ -51,7 +51,7 @@ angVelWrtN frame = angVelWrt frame NewtonianBases
 
 -- | angVelWrt f g is the angular velocity of frame f with respect to frame g
 angVelWrt :: Bases -> Bases -> Vec
-angVelWrt frameA frameB = (angVelWrtCommon frameA) - (angVelWrtCommon frameB)
+angVelWrt frameA frameB = angVelWrtCommon frameA - angVelWrtCommon frameB
   where
     common = lastCommonBases frameA frameB
 

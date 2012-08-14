@@ -199,7 +199,7 @@ instance Hashable Body where
 -- otherwise return Nothing
 fromNeg :: Sca -> Maybe Sca
 fromNeg (SNeg x) = Just x
-fromNeg (SExpr e _) = (flip SExpr Nothing) <$> (Expr.fromNeg e)
+fromNeg (SExpr e _) = flip SExpr Nothing <$> Expr.fromNeg e
 fromNeg (SDot bb x) = case fromNeg x of Just x' -> Just (SDot bb x')
                                         Nothing -> Nothing
 fromNeg _ = Nothing
@@ -242,8 +242,7 @@ instance Num Sca where
   signum = error "signum not defined for Num Sca"
   fromInteger = (\x -> x Nothing) . SExpr . fromInteger
   negate (SSub x y) = y - x
-  negate x = case fromNeg x of Nothing -> SNeg x
-                               Just x' -> x'
+  negate x = fromMaybe (SNeg x) (fromNeg x)
 
 instance Fractional Sca where
   (/) x y
@@ -261,9 +260,7 @@ instance Fractional Sca where
 
 instance Num Vec where
   (+) (Vec x) (Vec y) = removeZeros $ Vec (HM.unionWith (+) x y)
-  (-) (Vec x) (Vec y) = removeZeros $ Vec (HM.unionWith f x (HM.map negate y))
-    where
-      f x' y' = x' - (negate y')
+  (-) (Vec x) (Vec y) = removeZeros $ Vec (HM.unionWith (+) x (HM.map negate y))
   negate (Vec x) = removeZeros $ Vec (HM.map negate x)
 
   (*) = error "(*) not instanced for Vec"
@@ -354,7 +351,7 @@ vecFromN0 (RelativePoint p0 v) = v + vecFromN0 p0
 
 vecsFromN0 :: Point -> [Vec]
 vecsFromN0 N0 = []
-vecsFromN0 (RelativePoint p0 v) = v:(vecsFromN0 p0)
+vecsFromN0 (RelativePoint p0 v) = v : vecsFromN0 p0
 
 foldSca :: (Sca -> b -> b) -> b -> Sca -> b
 foldSca f acc s@(SExpr _ _) = f s acc

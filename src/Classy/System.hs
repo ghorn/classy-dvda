@@ -37,7 +37,7 @@ generalizedEffectiveForce gspeed (RigidBody mass inertia pos frame) = translatio
 
 generalizedForce :: Sca -> Body -> Forces -> Moments -> Sca
 generalizedForce gspeed (Particle _ pos) (Forces forces) _ =
-  partialV vel gspeed `dot` (sum $ map snd forces)
+  partialV vel gspeed `dot` sum (map snd forces)
   where
     vel = ddtNp pos
 generalizedForce gspeed (RigidBody _ _ pos frame) (Forces forces) (Moments moments) =
@@ -45,8 +45,9 @@ generalizedForce gspeed (RigidBody _ _ pos frame) (Forces forces) (Moments momen
   where
     w = angVelWrtN frame
     vel = ddtNp pos
-    translational = partialV vel gspeed `dot` (sum $ map snd forces)
-    rotational = partialV w gspeed `dot` ((sum moments) + (sum $ map (\(p,f) -> (subtractPoints p pos) `cross` f) forces))
+    translational = partialV vel gspeed `dot` sum (map snd forces)
+    rotational = partialV w gspeed `dot`
+                 (sum moments + sum (map (\(p,f) -> subtractPoints p pos `cross` f) forces))
     
 kaneEq :: [(Body, Forces, Moments)] -> Sca -> Equation Sca
 kaneEq bft gspeed
