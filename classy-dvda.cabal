@@ -17,6 +17,7 @@ library
   exposed-modules:     Classy
                        Classy.Convenience
                        Classy.Differentiation
+                       Classy.DebugShow
                        Classy.Examples
                        Classy.State
                        Classy.System

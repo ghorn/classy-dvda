@@ -14,6 +14,8 @@ module Classy ( -- * refernce frames
               , getSystem
               , getSystemT
               , liftIO
+              , debugShow
+              , debugPrint
                 -- * needed to write type signatures
               , Sca
               , Vec
@@ -26,6 +28,8 @@ module Classy ( -- * refernce frames
               , addParam
               , addAction
               , relativePoint
+              , derivIsSpeed
+              , setDeriv
                 -- * vector/frame operations
               , xyzVec
               , basisVec
@@ -60,6 +64,7 @@ module Classy ( -- * refernce frames
 
 import Classy.Convenience
 import Classy.Differentiation
+import Classy.DebugShow
 import Classy.State
 import Classy.System
 import Classy.Types
