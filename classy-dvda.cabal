@@ -18,6 +18,7 @@ library
                        Classy.Convenience
                        Classy.Differentiation
                        Classy.Examples
+                       Classy.State
                        Classy.System
                        Classy.Types
                        Classy.Utils
@@ -25,6 +26,7 @@ library
   other-modules:       Kitesys
   build-depends:       base >= 4   && < 5,
                        dvda >= 0.3.2.1 && < 0.4,
+                       mtl >= 2.0 && < 2.1,
                        -- unordered-containers and hashable will use the same version that dvda uses
                        -- so we don't need to specify
                        unordered-containers,

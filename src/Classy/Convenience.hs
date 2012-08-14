@@ -8,6 +8,7 @@ module Classy.Convenience ( newtonianBases
                           , basisVec
                           , xVec, yVec, zVec
                           , simpleDyadic
+                          , relativePoint
                           ) where
 
 import Dvda ( symDependent, sym )
@@ -84,3 +85,6 @@ simpleDyadic jx jy jz frame =
     by = Basis frame Y
     bz = Basis frame Z
 
+-- | specify a point relative to another point
+relativePoint :: Point -> Vec -> Point
+relativePoint = RelativePoint

@@ -45,7 +45,7 @@ data Basis = Basis Bases XYZ
            | Cross Basis Basis deriving Eq
 
 data Point = N0
-           | RelativePoint Point Vec
+           | RelativePoint Point Vec deriving Eq
 
 data Vec = Vec (HashMap Basis Sca) deriving Eq
 
@@ -75,6 +75,7 @@ instance Show a => Show (Equation a) where
   show (Equation lhs LT rhs) = show lhs ++ " < " ++ show rhs
   show (Equation lhs GT rhs) = show lhs ++ " > " ++ show rhs
 
+  showList [] = showString "[]"
   showList [x] = showString (show x)
   showList xs = showString $ intercalate "\n\n" $ map show xs
 
@@ -92,7 +93,6 @@ instance Eq Sca where
   (==) (SMul x0 x1) (SMul y0 y1) = x0 == y0 && x1 == y1
   (==) (SDiv x0 x1) (SDiv y0 y1) = x0 == y0 && x1 == y1
   (==) _ _ = False
-  
 
 -- | Lots of things carry around a list of all equivalent bases
 --   For example: if you start with frame N and rotate about Nz to get A, then Nz == Az
@@ -153,7 +153,11 @@ instance Hashable Rotation where
   hash (RotCoord q)        = hash "RotCoord" `combine` hash q
   hash (RotSpeed v)        = hash "RotSpeed" `combine` hash v
 --  hash (RotCoordSpeed q v) = hash "RotCoordSpeed" `combine` hash q `combine` hash v
-  
+
+instance Hashable Point where
+  hash N0 = hash "N0"
+  hash (RelativePoint p v) = hash "RelativePoint" `combine` hash p `combine` hash v
+
 
 ------------------------- Num/Fractional instances ---------------------------------
 -- if the input Sca is the result of unary negation, return the un-negated version

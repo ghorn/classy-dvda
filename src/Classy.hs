@@ -16,6 +16,7 @@ module Classy ( -- * refernce frames
               , coord
               , speed
               , param
+              , relativePoint
                 -- * vector/frame operations
               , xyzVec
               , basisVec
