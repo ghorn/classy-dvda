@@ -83,6 +83,7 @@ newtonianBases = do
     Nothing -> do
       let nb = NewtonianBases
       put $ cs{ csNewtonianBases = Just nb }
+      addBases nb
       return nb
 
 addParam :: Monad a => String -> StateT ClassySystem a Sca
@@ -182,6 +183,16 @@ addMoment rb@(RigidBody{}) moment = do
         Just (fs, Moments ts) -> (fs, Moments (moment:ts))
   put $ cs{ csBodies = HM.insert rb newForcesMoments (csBodies cs) }
 
+
+addBases :: Monad a => Bases -> StateT ClassySystem a ()
+addBases b = do
+  cs <- get
+  let newBases =
+        if HS.member b (csBases cs)
+        then error $ "error: you've defined a bases that already exists: " ++ show b
+        else HS.insert b (csBases cs)
+  put $ cs{ csBases = newBases }
+
 -- should check for generalized speeds/coords
 -- | define a new frame as x, y or z rotation about given frame, providing the name of the new frame
 rotXYZ :: Monad a => XYZ -> Bases -> Sca -> String -> StateT ClassySystem a Bases
@@ -219,9 +230,8 @@ rotXYZ xyz b0 q name = do
              ]
       err = error "rotXyz adding dcm compenents that already exist: "
   
-  put $ cs { csBases = HS.insert newBases (csBases cs)
-           , csDots = HM.unionWith err newDots (csDots cs)
-           }
+  put $ cs { csDots = HM.unionWith err newDots (csDots cs) }
+  addBases newBases
   return newBases
 
 -- | convenience functions for calling rotXYZ
@@ -232,12 +242,15 @@ rotZ = rotXYZ Z
 
 -- | @c = frameWithAngVel n (wx,wy,wz) name@ defines a new frame @c@ named @name@
 --  which is defined as having angular velocity @wx*cx>+ wy*cy> + wz*cz>@ with respect to frame @n@
-basesWithAngVel :: Bases -> (Sca,Sca,Sca) -> String -> Bases
+basesWithAngVel :: Monad a => Bases -> (Sca,Sca,Sca) -> String -> StateT ClassySystem a Bases
 basesWithAngVel f0 (wx,wy,wz) name
   | any isCoord [wx,wy,wz] =
     error $ "frameWithAngVel can't be given generalized coordinates " ++
     show (filter isCoord [wx,wy,wz]) ++ " as speeds"
-  | otherwise = RotatedBases f0 (RotSpeed (wx,wy,wz)) name
+  | otherwise = do
+    let rb = RotatedBases f0 (RotSpeed (wx,wy,wz)) name
+    addBases rb
+    return rb
 
 simplifyDcms :: HashMap (Basis,Basis) Sca -> Sca -> Sca
 simplifyDcms hm s@(SDot (b0,b1) x) =

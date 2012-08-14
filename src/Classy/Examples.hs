@@ -21,7 +21,7 @@ simple = do
         my <- addParam "Ty"
         mz <- addParam "Tz"
         
-        let b = basesWithAngVel n (wx,wy,wz) "B"
+        b <- basesWithAngVel n (wx,wy,wz) "B"
         body <- addRigidBody 1 (simpleDyadic jx jy jz b) N0 b
         addMoment body (xyzVec (mx,my,mz) b)
         --addMoment body (xyzVec (mx,my,mz) n)
