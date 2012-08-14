@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -Wall #-}
 
 module Classy.System ( getCMPos
+                     , kineticEnergy
                      , generalizedForce
                      , generalizedEffectiveForce
                      , kaneEq
@@ -16,6 +17,17 @@ getCMPos :: Body -> Point
 getCMPos (Particle _ p) = p
 getCMPos (RigidBody _ _ p _) = p
 
+kineticEnergy :: Body -> Sca
+kineticEnergy (Particle mass pos) = 0.5*mass*(vel `dot` vel)
+  where
+    vel = ddtN (vecFromN0 pos)
+kineticEnergy b@(RigidBody mass inertia _ frame) = translational + rotational
+  where
+    pos = getCMPos b
+    vel = ddtN (vecFromN0 pos)
+    translational = 0.5*mass*(vel `dot` vel)
+    w = angVelWrtN frame
+    rotational = w `dot` (inertia `dyadicDot` w)
 
 generalizedEffectiveForce :: Sca -> Body -> Sca
 generalizedEffectiveForce gspeed (Particle mass pos) =

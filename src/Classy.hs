@@ -52,6 +52,7 @@ module Classy ( -- * refernce frames
               , addParticle
               , addMoment
               , addForce
+              , kineticEnergy
               , generalizedForce
               , generalizedEffectiveForce
               , kanes

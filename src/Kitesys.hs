@@ -41,7 +41,7 @@ kitesys = getSystemT $ do
 
   kite <- addRigidBody m (simpleDyadic jx jy jz kiteBases) r'n0'k kiteBases
 
-  liftIO $ print kite
+  liftIO $ print $ kineticEnergy kite
   
   addForce kite r'n0'k (xyzVec (fx,fy,fz) kiteBases)
   addMoment kite (xyzVec (mx,my,mz) kiteBases)
