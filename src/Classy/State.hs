@@ -2,6 +2,9 @@
 {-# Language DoAndIfThenElse #-}
 
 module Classy.State ( ClassySystem(..)
+                    , StateT
+                    , State
+                    , Identity
                     -- * scalars
                     , addParam, addAction, addCoord, addSpeed
                     , derivIsSpeed
@@ -16,13 +19,18 @@ module Classy.State ( ClassySystem(..)
                     , addForce
                     , addForceAtCm
                     , addMoment
-
-                    , runClassyState
                     , kanes
+                      -- * monad transformer utils
+                    , getSystem
+                    , getSystemT
+                    , liftIO
+                      
                     , run
                     ) where
 
-import Control.Monad.State.Lazy
+import Control.Monad.Identity ( Identity, runIdentity )
+import Control.Monad.State.Lazy ( StateT, State, get, put, execStateT )
+import Control.Monad.Trans ( liftIO )
 import Data.HashMap.Lazy ( HashMap )
 import qualified Data.HashMap.Lazy as HM
 import Data.HashSet ( HashSet )
@@ -49,8 +57,11 @@ data ClassySystem = ClassySystem { csCoords :: HashSet Sca
                                  , csNewtonianBases :: Maybe Bases
                                  } deriving Show
 
-runClassyState :: State ClassySystem a -> ClassySystem
-runClassyState = flip execState emptyClassySystem
+getSystem :: StateT ClassySystem Identity a -> ClassySystem
+getSystem = runIdentity . getSystemT
+
+getSystemT :: Monad a => StateT ClassySystem a b -> a ClassySystem
+getSystemT = flip execStateT emptyClassySystem
   where
     emptyClassySystem = ClassySystem { csCoords = HS.empty
                                    , csSpeeds = HS.empty
@@ -64,7 +75,7 @@ runClassyState = flip execState emptyClassySystem
                                    }
 
 -- | the one unique newtonian frame which all other frame are defined relative to
-newtonianBases :: State ClassySystem Bases
+newtonianBases :: Monad a => StateT ClassySystem a Bases
 newtonianBases = do
   cs <- get
   case csNewtonianBases cs of
@@ -74,36 +85,35 @@ newtonianBases = do
       put $ cs{ csNewtonianBases = Just nb }
       return nb
 
-
-addParam :: String -> State ClassySystem Sca
+addParam :: Monad a => String -> StateT ClassySystem a Sca
 addParam name = do
   cs <- get
   let p = SExpr (sym name) Nothing
   put $ cs{ csParams = HS.insert p (csParams cs) }
   return p
 
-addAction :: String -> State ClassySystem Sca
+addAction :: Monad a => String -> StateT ClassySystem a Sca
 addAction name = do
   cs <- get
   let u = SExpr (sym name) Nothing
   put $ cs{ csActions = HS.insert u (csActions cs) }
   return u
 
-addCoord :: String -> State ClassySystem Sca
+addCoord :: Monad a => String -> StateT ClassySystem a Sca
 addCoord name = do
   cs <- get
   let c = SExpr (symDependent name time) (Just 0)
   put $ cs{ csCoords = HS.insert c (csCoords cs) }
   return c
 
-addSpeed :: String -> State ClassySystem Sca
+addSpeed :: Monad a => String -> StateT ClassySystem a Sca
 addSpeed name = do
   cs <- get
   let s = SExpr (symDependent name time) (Just 1)
   put $ cs{ csSpeeds = HS.insert s (csSpeeds cs) }
   return s
 
-setDeriv :: Sca -> Sca -> State ClassySystem ()
+setDeriv :: Monad a => Sca -> Sca -> StateT ClassySystem a ()
 setDeriv c c' =
   if not (isCoord c)
   then error "you can only set the derivative of a coordinate with setDeriv"
@@ -113,7 +123,7 @@ setDeriv c c' =
         newCoordDerivs = HM.insertWith err c c' (csCoordDerivs cs)
     put $ cs{ csCoordDerivs = newCoordDerivs }
                   
-derivIsSpeed :: Sca -> State ClassySystem ()
+derivIsSpeed :: Monad a => Sca -> StateT ClassySystem a ()
 derivIsSpeed c = do
   let s = ddt c
   if not (isCoord c)
@@ -127,7 +137,7 @@ derivIsSpeed c = do
     put $ cs{ csSpeeds = newSpeeds }
     setDeriv c s
 
-addParticle :: Sca -> Point -> State ClassySystem Body
+addParticle :: Monad a => Sca -> Point -> StateT ClassySystem a Body
 addParticle mass position = do
   cs <- get
   let err = error $ "error: you tried to add an existing particle with \"addParticle\"\n"++show p
@@ -135,7 +145,7 @@ addParticle mass position = do
   put $ cs{ csBodies = HM.insertWith err p (Forces [], Moments []) (csBodies cs) }
   return p
 
-addRigidBody :: Sca -> Dyadic -> Point -> Bases -> State ClassySystem Body
+addRigidBody :: Monad a => Sca -> Dyadic -> Point -> Bases -> StateT ClassySystem a Body
 addRigidBody mass dyadic position bases = do
   cs <- get
   let err = error $ "error: you tried to add an existing rigid body with \"addRigidBody\"\n"++show rb
@@ -144,7 +154,7 @@ addRigidBody mass dyadic position bases = do
   return rb
 
 -- | add a force to a rigidy body to be applied at a given point
-addForce :: Body -> Point -> Vec -> State ClassySystem ()
+addForce :: Monad a => Body -> Point -> Vec -> StateT ClassySystem a ()
 addForce p@(Particle _ _) pos force = do
   cs <- get
   let newForcesMoments = case HM.lookup p (csBodies cs) of
@@ -159,10 +169,10 @@ addForce rb@(RigidBody{}) pos force = do
   put $ cs{ csBodies = HM.insert rb newForcesMoments (csBodies cs) }
 
 -- | add a force to a rigidy body to be applied at the body's center of mass
-addForceAtCm :: Body -> Vec -> State ClassySystem ()
+addForceAtCm :: Monad a => Body -> Vec -> StateT ClassySystem a ()
 addForceAtCm b = addForce b (getCMPos b)
 
-addMoment :: Body -> Vec -> State ClassySystem ()
+addMoment :: Monad a => Body -> Vec -> StateT ClassySystem a ()
 addMoment p@(Particle _ _) _ =
   error $ "addMoment: called on particle: " ++ show p ++ ", can only call addMoment on a rigid body"
 addMoment rb@(RigidBody{}) moment = do
@@ -174,7 +184,7 @@ addMoment rb@(RigidBody{}) moment = do
 
 -- should check for generalized speeds/coords
 -- | define a new frame as x, y or z rotation about given frame, providing the name of the new frame
-rotXYZ :: XYZ -> Bases -> Sca -> String -> State ClassySystem Bases
+rotXYZ :: Monad a => XYZ -> Bases -> Sca -> String -> StateT ClassySystem a Bases
 rotXYZ xyz b0 q name = do
   cs <- get
   let newBases' =
@@ -215,7 +225,7 @@ rotXYZ xyz b0 q name = do
   return newBases
 
 -- | convenience functions for calling rotXYZ
-rotX,rotY,rotZ :: Bases -> Sca -> String -> State ClassySystem Bases
+rotX,rotY,rotZ :: Monad a => Bases -> Sca -> String -> StateT ClassySystem a Bases
 rotX = rotXYZ X
 rotY = rotXYZ Y
 rotZ = rotXYZ Z
@@ -255,7 +265,7 @@ kanes cs = mapEqs (simplifyDcms (csDots cs)) unsimplifiedEqs
     speeds = HS.toList (csSpeeds cs)
 
 run :: [Equation Sca]
-run = kanes $ runClassyState $ do
+run = kanes $ getSystem $ do
   n <- newtonianBases
 
   q <- addCoord "q"

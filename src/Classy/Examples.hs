@@ -7,7 +7,7 @@ import Classy
 
 simple :: IO ()
 simple = do
-  let sys = runClassyState $ do
+  let sys = getSystem $ do
         n <- newtonianBases
         jx <- addParam "Jx"
         jy <- addParam "Jy"

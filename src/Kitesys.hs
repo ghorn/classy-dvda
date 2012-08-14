@@ -4,8 +4,8 @@ module Kitesys where
 
 import Classy
 
-model :: ClassySystem
-model = runClassyState $ do
+kitesys :: IO ClassySystem
+kitesys = getSystemT $ do
   n <- newtonianBases
 
   rArm <- addParam "R"
@@ -30,7 +30,7 @@ model = runClassyState $ do
 
   m <- addParam "m"
   let kiteBases = basesWithAngVel n (wx,wy,wz) "K"
-  let r'n0'k = relativePoint N0 $ xVec rArm carouselBases + xVec rLine lineBases
+      r'n0'k = relativePoint N0 $ xVec rArm carouselBases + xVec rLine lineBases
 
   fx <- addParam "Fx"
   fy <- addParam "Fy"
@@ -40,12 +40,15 @@ model = runClassyState $ do
   mz <- addParam "Tz"
 
   kite <- addRigidBody m (simpleDyadic jx jy jz kiteBases) r'n0'k kiteBases
+
+  liftIO $ print kite
+  
   addForce kite r'n0'k (xyzVec (fx,fy,fz) kiteBases)
   addMoment kite (xyzVec (mx,my,mz) kiteBases)
 
 
 run :: IO ()
 run = do
-  print model
+  sys <- kitesys
   putStrLn "\n--------------- kane's eqs: ------------------"
-  print $ kanes model
+  print $ kanes sys

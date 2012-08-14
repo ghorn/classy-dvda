@@ -30,7 +30,8 @@ module Classy.Types ( -- * math types
                     ) where
 
 import Control.Applicative ( (<$>) )
-import Data.Hashable
+import Data.Maybe ( fromMaybe )
+import Data.Hashable ( Hashable, hash, combine )
 import Data.HashMap.Lazy ( HashMap )
 import qualified Data.HashMap.Lazy as HM hiding ( fromList )
 import Data.HashSet( HashSet )

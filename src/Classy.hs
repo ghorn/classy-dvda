@@ -6,8 +6,15 @@ module Classy ( -- * refernce frames
               , rotXYZ
               , rotX, rotY, rotZ
               , basesWithAngVel
-                -- * needed to write type signatures
+                -- * classy state transformer and convenience functions
               , ClassySystem
+              , StateT
+              , State
+              , Identity
+              , getSystem
+              , getSystemT
+              , liftIO
+                -- * needed to write type signatures
               , Sca
               , Vec
               , Bases
@@ -45,7 +52,6 @@ module Classy ( -- * refernce frames
               , addParticle
               , addMoment
               , addForce
-              , runClassyState
               , generalizedForce
               , generalizedEffectiveForce
               , kanes
