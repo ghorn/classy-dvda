@@ -30,7 +30,7 @@ toExpr e@(SDot _ _) = error $ "toExpr got something it couldn't convert to an Ex
 showlist :: [String] -> String
 showlist xs = '[' : intercalate ", " xs ++ "]"
 
-someSys :: ClassySystem
+someSys :: System
 someSys = getSystem $ do
   n <- newtonianBases
 
@@ -72,7 +72,7 @@ implicitError :: Num a => Equation a -> a
 implicitError (Equation lhs EQ rhs) = lhs - rhs
 implicitError (Equation _ ord _) = error $ "implicitError only works on Eq, not " ++ show ord
 
-writeIdasIntegrator :: String -> ClassySystem -> IO ()
+writeIdasIntegrator :: String -> System -> IO ()
 writeIdasIntegrator name cs = do
   let coords' = HS.toList (csCoords cs)
       coords = map toExpr coords'

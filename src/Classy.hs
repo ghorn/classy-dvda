@@ -7,7 +7,7 @@ module Classy ( -- * refernce frames
               , rotX, rotY, rotZ
               , basesWithAngVel
                 -- * classy state transformer and convenience functions
-              , ClassySystem
+              , System
               , StateT
               , State
               , Identity

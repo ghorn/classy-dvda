@@ -6,7 +6,7 @@ import Classy
 import Classy.State hiding ( run )
 import Control.Monad.State
 
-kitesys :: IO ClassySystem
+kitesys :: IO System
 kitesys = getSystemT $ do
   n <- newtonianBases
 
@@ -56,7 +56,7 @@ run = do
   print $ kanes sys
 
 
-simpleKitesys :: IO ClassySystem
+simpleKitesys :: IO System
 simpleKitesys = getSystemT $ do
   n <- newtonianBases
 
