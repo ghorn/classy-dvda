@@ -25,8 +25,9 @@ library
                        Classy.Utils
                        Classy.VectorMath
   other-modules:       Kitesys
+                       Classy.Casadi
   build-depends:       base >= 4   && < 5,
-                       dvda >= 0.3.2.1 && < 0.4,
+                       dvda >= 0.4 && < 0.5,
                        mtl >= 2.0 && < 2.1,
                        -- unordered-containers and hashable will use the same version that dvda uses
                        -- so we don't need to specify

@@ -2,7 +2,6 @@
 
 module Classy.Casadi where
 
-import Control.Monad.State.Lazy
 import Data.List ( intercalate )
 import qualified Data.HashMap.Lazy as HM
 import qualified Data.HashSet as HS
@@ -31,8 +30,8 @@ toExpr e@(SDot _ _) = error $ "toExpr got something it couldn't convert to an Ex
 showlist :: [String] -> String
 showlist xs = '[' : intercalate ", " xs ++ "]"
 
-someSys :: ClassyState
-someSys = flip execState emptyClassyState $ do
+someSys :: ClassySystem
+someSys = getSystem $ do
   n <- newtonianBases
 
   q <- addCoord "q"
@@ -49,8 +48,8 @@ someSys = flip execState emptyClassyState $ do
   let r_b_n0 = CC.relativePoint N0 (CC.zVec r b)
 
   basket <- addParticle mass r_b_n0
-  addForce basket (CC.zVec (mass*g) n)
-  addForce basket (CC.zVec (-tension) b)
+  addForceAtCm basket (CC.zVec (mass*g) n)
+  addForceAtCm basket (CC.zVec (-tension) b)
 
 run :: IO ()
 run = writeIdasIntegrator "blah" someSys
@@ -73,7 +72,7 @@ implicitError :: Num a => Equation a -> a
 implicitError (Equation lhs EQ rhs) = lhs - rhs
 implicitError (Equation _ ord _) = error $ "implicitError only works on Eq, not " ++ show ord
 
-writeIdasIntegrator :: String -> ClassyState -> IO ()
+writeIdasIntegrator :: String -> ClassySystem -> IO ()
 writeIdasIntegrator name cs = do
   let coords' = HS.toList (csCoords cs)
       coords = map toExpr coords'
