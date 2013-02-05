@@ -117,10 +117,11 @@ cartesianKitesys :: IO System
 cartesianKitesys = getSystemT $ do
   n <- newtonianBases
 
---  rArm <- addParam "R"
+  rArm <- addParam "rArm"
   delta <- addCoord "d"
+  _ <- derivIsSpeed delta
 
-  carouselBases <- rotZ n (0*delta) "A"
+  carouselBases <- rotZ n delta "C"
 
   x <- addCoord "x"
   y <- addCoord "y"
@@ -128,7 +129,6 @@ cartesianKitesys = getSystemT $ do
   [x',y',z'] <- mapM derivIsSpeed [x,y,z]
 
   r <- addCoord "r"
---  rLine <- addParam "r"
 
   jx <- addParam "Jx"
   jy <- addParam "Jy"
@@ -139,36 +139,36 @@ cartesianKitesys = getSystemT $ do
   wz <- addSpeed "wz"
 
   m <- addParam "m"
-  kiteBases <- basesWithAngVel n (wx,wy,wz) "K"
-  let r'n0'k = relativePoint N0 $ xyzVec (x, y, z) carouselBases
---  let r'n0'k = relativePoint N0 $ xyzVec ((rArm + x), y, z) carouselBases
+  kiteBases <- basesWithAngVel n (wx,wy,wz) "B"
+  let r'n0'k = relativePoint N0 $ xyzVec ((rArm + x), y, z) carouselBases
 
   tension <- addParam "T"
   fx <- addParam "Fx"
   fy <- addParam "Fy"
   fz <- addParam "Fz"
---  mx <- addParam "Tx"
---  my <- addParam "Ty"
---  mz <- addParam "Tz"
+  mx <- addParam "Tx"
+  my <- addParam "Ty"
+  mz <- addParam "Tz"
 
+  -- carousel arm rigid body
+--  cJxx <- addParam "cJxx"
+--  cMass <- addParam "cm"
+--  let armCm = relativePoint N0 $ xVec (rArm/2) carouselBases
+--  _ <- addRigidBody cMass (simpleDyadic cJxx 0 0 carouselBases) armCm carouselBases
+
+  -- kite rigid body
   kite <- addRigidBody m (simpleDyadic jx jy jz kiteBases) r'n0'k kiteBases
---  kite <- addParticle m r'n0'k
 
---  addForce kite r'n0'k (xyzVec (fx,fy,fz) kiteBases)
-  addForce kite r'n0'k (xyzVec (-tension*x/r + fx, -tension*y/r + fy, -tension*z/r + fz) carouselBases)
---  liftIO $ print $ kineticEnergy kite
+  -- external forces/torques
+  addForce kite r'n0'k (xyzVec (fx,fy,fz) kiteBases)
+  addMoment kite (xyzVec (mx,my,mz) kiteBases)
 
---  let bodiesForcesMoments = map (\(body, (fs,ts)) -> (body,fs,ts)) (HM.toList $ csBodies sys)
---  liftIO $ mapM_ print bodiesForcesMoments
+  -- constraint force
+  addForce kite r'n0'k (xyzVec (-tension*x/r, -tension*y/r, -tension*z/r) carouselBases)
+
   liftIO $ print $ generalizedEffectiveForce x' kite
   liftIO $ print $ generalizedEffectiveForce y' kite
   liftIO $ print $ generalizedEffectiveForce z' kite
-
-  return ()
-  
-  
---  addForce kite r'n0'k (xyzVec (fx,fy,fz) kiteBases)
---  addMoment kite (xyzVec (mx,my,mz) kiteBases)
 
 
 go :: IO ()
