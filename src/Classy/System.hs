@@ -30,6 +30,8 @@ kineticEnergy b@(RigidBody mass inertia _ frame) = translational + rotational
     rotational = w `dot` (inertia `dyadicDot` w)
 
 generalizedEffectiveForce :: Sca -> Body -> Sca
+generalizedEffectiveForce gspeed _
+  | not (isSpeed gspeed) = error $ "generalizedEffectiveForce given something that is not a generalized speed: " ++ show gspeed
 generalizedEffectiveForce gspeed (Particle mass pos) =
   partialV vel gspeed `dot` scale mass accel
   where
@@ -63,13 +65,11 @@ generalizedForce gspeed (RigidBody _ _ pos frame) (Forces forces) (Moments pureM
         resultantMoments = map (\(p,f) -> subtractPoints p pos `cross` f) forces
     
 kaneEq :: [(Body, Forces, Moments)] -> Sca -> Equation Sca
-kaneEq bft gspeed
-  | not (isSpeed gspeed) = error $ "kaneEq given something that is not a generalized speed: " ++ show gspeed
-  | otherwise =
-    Equation
-    (sum $ map (\(body,forces,moments) -> generalizedForce gspeed body forces moments) bft)
-    EQ
-    (sum $ map (\(body,_,_) -> generalizedEffectiveForce gspeed body) bft)
+kaneEq bft gspeed =
+  Equation
+  (sum $ map (\(body,forces,moments) -> generalizedForce gspeed body forces moments) bft)
+  EQ
+  (sum $ map (\(body,_,_) -> generalizedEffectiveForce gspeed body) bft)
 
 -- | run kanes equations for given generalized speeds
 kaneEqs :: [(Body,Forces,Moments)] -> [Sca] -> [Equation Sca]
