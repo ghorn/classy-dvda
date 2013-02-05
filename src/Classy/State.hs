@@ -124,7 +124,7 @@ setDeriv c c' =
         newCoordDerivs = HM.insertWith err c c' (csCoordDerivs cs)
     put $ cs{ csCoordDerivs = newCoordDerivs }
                   
-derivIsSpeed :: Monad a => Sca -> StateT System a ()
+derivIsSpeed :: Monad a => Sca -> StateT System a Sca
 derivIsSpeed c = do
   let s = ddt c
   if not (isCoord c)
@@ -137,6 +137,7 @@ derivIsSpeed c = do
 
     put $ cs{ csSpeeds = newSpeeds }
     setDeriv c s
+    return s
 
 addParticle :: Monad a => Sca -> Point -> StateT System a Body
 addParticle mass position = do
@@ -283,8 +284,8 @@ run = kanes $ getSystem $ do
 
   q <- addCoord "q"
   r <- addCoord "r"
-  derivIsSpeed q
-  derivIsSpeed r
+  _ <- derivIsSpeed q
+  _ <- derivIsSpeed r
 
   mass <- addParam "m"
   g <- addParam "g"
