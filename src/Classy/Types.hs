@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Classy.Types ( -- * math types
                       Sca(..)
@@ -31,12 +32,13 @@ module Classy.Types ( -- * math types
 
 import Control.Applicative ( (<$>) )
 import Data.Maybe ( fromMaybe )
-import Data.Hashable ( Hashable, hash, combine )
+import Data.Hashable ( Hashable(..), hash )
 import Data.HashMap.Lazy ( HashMap )
 import qualified Data.HashMap.Lazy as HM hiding ( fromList )
 import Data.HashSet( HashSet )
 import qualified Data.HashSet as HS
 import Data.List ( intercalate )
+import GHC.Generics ( Generic )
 
 import qualified Dvda.Expr as Expr
 import Dvda.Expr ( Expr(..), Sym(..), sym )
@@ -48,30 +50,31 @@ data Sca = SExpr (Expr Double) (Maybe Int)
          | SSub Sca Sca
          | SMul Sca Sca
          | SDiv Sca Sca
+           deriving Generic
 
 data Basis = Basis Bases XYZ
-           | Cross Basis Basis deriving Eq
+           | Cross Basis Basis deriving (Eq, Generic)
 
 data Point = N0
-           | RelativePoint Point Vec deriving Eq
+           | RelativePoint Point Vec deriving (Eq, Generic)
 
-data Vec = Vec (HashMap Basis Sca) deriving Eq
+data Vec = Vec (HashMap Basis Sca) deriving (Eq, Generic)
 
-data XYZ = X | Y | Z deriving Eq
+data XYZ = X | Y | Z deriving (Eq, Generic)
 
 data Bases = NewtonianBases
-           | RotatedBases Bases Rotation String deriving Eq
+           | RotatedBases Bases Rotation String deriving (Eq, Generic)
 
 data Rotation = RotSpeed (Sca,Sca,Sca)
-              | RotCoord Vec deriving (Show, Eq)
+              | RotCoord Vec deriving (Show, Eq, Generic)
 --              | RotCoordSpeed Vec Vec
 
-data Dyad = Dyad Sca Basis Basis deriving Eq
+data Dyad = Dyad Sca Basis Basis deriving (Eq, Generic)
 instance Show Dyad where
   showsPrec d (Dyad x b1 b2) = showParen (d > 7) $
                                showsPrec 7 x . showString "*" . showsPrec 7 b1 . showsPrec 7 b2
 
-data Dyadic = Dyadic ((Dyad, Dyad, Dyad), (Dyad, Dyad, Dyad), (Dyad, Dyad, Dyad)) deriving Eq
+data Dyadic = Dyadic ((Dyad, Dyad, Dyad), (Dyad, Dyad, Dyad), (Dyad, Dyad, Dyad)) deriving (Eq, Generic)
 instance Show Dyadic where
   show (Dyadic ((xx,xy,xz), (yx,yy,yz), (zx,zy,zz))) = intercalate " + " $ map show xs
     where
@@ -121,7 +124,7 @@ data Body = Particle
             Dyadic --  inertia dyadic
             Point --  cm position relative to N0
             Bases --  reference bases attached to the rigid body (for getting angular velocity)
-          deriving Eq
+          deriving (Eq, Generic)
 
 
 
@@ -147,53 +150,30 @@ instance HasEquivBases Basis where
 
 -------------------------- hashable instances ------------------------------------
 instance Hashable Sca where
-  hash (SExpr x (Just mx))  = hash "SExpr" `combine` hash x `combine` mx
-  hash (SExpr x _)  = hash "SExpr" `combine` hash x
-  -- sort the hashes because (x `dot` y) == (y `dot` x), as defined in Eq instance
-  hash (SDot (b0,b1) x) = hash "SExpr" `combine` hash x `combine` min hb0 hb1 `combine` max hb0 hb1
+  hashWithSalt s (SExpr x (Just mx))  = s `hashWithSalt` "SExpr" `hashWithSalt` x `hashWithSalt` mx
+  hashWithSalt s (SExpr x _)  = s `hashWithSalt` "SExpr" `hashWithSalt` x
+-- sort the hashes because (x `dot` y) == (y `dot` x), as defined in Eq instance
+  hashWithSalt s (SDot (b0,b1) x) = s `hashWithSalt` "SExpr" `hashWithSalt` x `hashWithSalt` min hb0 hb1 `hashWithSalt` max hb0 hb1
     where
       hb0 = hash b0
       hb1 = hash b1
-  hash (SNeg x)   = hash "SNeg" `combine` hash x
-  hash (SAdd x y) = hash "SAdd" `combine` hash x `combine` hash y
-  hash (SSub x y) = hash "SSub" `combine` hash x `combine` hash y
-  hash (SMul x y) = hash "SMul" `combine` hash x `combine` hash y
-  hash (SDiv x y) = hash "SDiv" `combine` hash x `combine` hash y
+  hashWithSalt s (SNeg x)   = s `hashWithSalt` "SNeg" `hashWithSalt` x
+  hashWithSalt s (SAdd x y) = s `hashWithSalt` "SAdd" `hashWithSalt` x `hashWithSalt` y
+  hashWithSalt s (SSub x y) = s `hashWithSalt` "SSub" `hashWithSalt` x `hashWithSalt` y
+  hashWithSalt s (SMul x y) = s `hashWithSalt` "SMul" `hashWithSalt` x `hashWithSalt` y
+  hashWithSalt s (SDiv x y) = s `hashWithSalt` "SDiv" `hashWithSalt` x `hashWithSalt` y
 
 instance Hashable Vec where
-  hash (Vec hm) = hash "Vec" `combine` hash (HM.toList hm)
+  hashWithSalt s (Vec hm) = s `hashWithSalt` "Vec" `hashWithSalt` (HM.toList hm)
 
-instance Hashable Basis where
-  hash (Basis f xyz) = hash "Basis" `combine` hash f `combine` hash xyz
-  hash (Cross x y) = hash "Cross" `combine` hash x `combine` hash y
-
-instance Hashable XYZ where
-  hash X = hash "X"
-  hash Y = hash "Y"
-  hash Z = hash "Z"
-
-instance Hashable Bases where
-  hash NewtonianBases = hash "NewtonianBases"
-  hash (RotatedBases frame rot name) = hash "RotatedBases" `combine` hash frame `combine` hash rot `combine` hash name
-
-instance Hashable Rotation where
-  hash (RotCoord q)        = hash "RotCoord" `combine` hash q
-  hash (RotSpeed v)        = hash "RotSpeed" `combine` hash v
---  hash (RotCoordSpeed q v) = hash "RotCoordSpeed" `combine` hash q `combine` hash v
-
-instance Hashable Point where
-  hash N0 = hash "N0"
-  hash (RelativePoint p v) = hash "RelativePoint" `combine` hash p `combine` hash v
-
-instance Hashable Dyad where
-  hash (Dyad sca b0 b1) = hash ("Dyad", sca, b0, b1)
-
-instance Hashable Dyadic where
-  hash (Dyadic x) = hash ("Dyadic",x)
-
-instance Hashable Body where
-  hash (Particle mass pos) = hash ("Particle", mass, pos)
-  hash (RigidBody mass inertia pos bases) = hash ("RigidBody",mass,inertia,pos,bases)
+instance Hashable Basis
+instance Hashable XYZ
+instance Hashable Bases
+instance Hashable Rotation
+instance Hashable Point
+instance Hashable Dyad
+instance Hashable Dyadic
+instance Hashable Body
 
 ------------------------- Num/Fractional instances ---------------------------------
 -- if the input Sca is the result of unary negation, return the un-negated version

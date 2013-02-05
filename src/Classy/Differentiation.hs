@@ -13,7 +13,7 @@ module Classy.Differentiation ( ddt
 import qualified Data.HashMap.Lazy as HM
 import Debug.Trace
 
-import Dvda
+import Dvda hiding ( Vec )
 
 import Classy.Types
 import Classy.Utils ( lastCommonBases )
