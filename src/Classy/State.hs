@@ -33,8 +33,6 @@ import Control.Monad.State.Lazy ( StateT, State, get, put, execStateT )
 import Control.Monad.Trans ( liftIO )
 import Data.HashMap.Lazy ( HashMap )
 import qualified Data.HashMap.Lazy as HM
-import Data.HashSet ( HashSet )
-import qualified Data.HashSet as HS
 
 import Dvda ( symDependent, sym )
 
@@ -43,15 +41,17 @@ import Classy.Differentiation ( ddt )
 import Classy.System
 import Classy.Types
 import Classy.VectorMath ( scaleBasis )
+import Classy.OrderedHashSet ( OrderedHashSet )
+import qualified Classy.OrderedHashSet as HS
 
 data DCM = SimpleRot XYZ Sca deriving Show
 
-data System = System { csCoords :: HashSet Sca
-                     , csSpeeds :: HashSet Sca
-                     , csParams :: HashSet Sca
-                     , csActions :: HashSet Sca
+data System = System { csCoords :: OrderedHashSet Sca
+                     , csSpeeds :: OrderedHashSet Sca
+                     , csParams :: OrderedHashSet Sca
+                     , csActions :: OrderedHashSet Sca
                      , csCoordDerivs :: HashMap Sca Sca
-                     , csBases :: HashSet Bases
+                     , csBases :: OrderedHashSet Bases
                      , csDots :: HashMap (Basis, Basis) Sca
                      , csBodies :: HashMap Body (Forces,Moments)
                      , csNewtonianBases :: Maybe Bases
@@ -276,7 +276,7 @@ kanes cs = mapEqs (simplifyDcms (csDots cs)) unsimplifiedEqs
 
     unsimplifiedEqs = kaneEqs bodiesForcesMoments speeds
     bodiesForcesMoments = map (\(body, (fs,ts)) -> (body,fs,ts)) (HM.toList $ csBodies cs)
-    speeds = HS.toList (csSpeeds cs)
+    speeds = HS.toOrderedList (csSpeeds cs)
 
 run :: [Equation Sca]
 run = kanes $ getSystem $ do

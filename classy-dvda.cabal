@@ -19,6 +19,7 @@ library
                        Classy.Differentiation
                        Classy.DebugShow
                        Classy.Examples
+                       Classy.OrderedHashSet
                        Classy.State
                        Classy.System
                        Classy.Types
